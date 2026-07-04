@@ -18,9 +18,14 @@ async function getOrCreateSession(phone: string) {
   return newSession
 }
 
+// async function updateSession(phone: string, state: BotState, context: Record<string, unknown>) {
+//   await supabase.from('whatsapp_sessions')
+//     .upsert({ phone, state, context, last_message_at: new Date().toISOString() })
+// }
 async function updateSession(phone: string, state: BotState, context: Record<string, unknown>) {
   await supabase.from('whatsapp_sessions')
-    .upsert({ phone, state, context, last_message_at: new Date().toISOString() })
+    .update({ state, context, last_message_at: new Date().toISOString() })
+    .eq('phone', phone)
 }
 
 async function processMessage(phone: string, body: string): Promise<string> {
