@@ -1,35 +1,17 @@
-'use client'
-
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/Sidebar'
-import { useAuth } from '@/components/AuthProvider'
+import { getAuthenticatedBusiness, trialDaysRemaining } from '@/lib/get-business'
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
-  const router = useRouter()
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { user, business } = await getAuthenticatedBusiness()
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.replace('/login')
-    }
-  }, [loading, router, user])
+  if (!user) redirect('/login')
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F8FAFB', color: '#4A5568' }}>
-        Loading your workspace...
-      </div>
-    )
-  }
-
-  if (!user) {
-    return null
-  }
+  const trialDays = trialDaysRemaining(business?.trial_ends_at || null)
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#F8FAFB' }}>
-      <Sidebar />
+      <Sidebar businessName={business?.business_name} trialDays={trialDays} tier={business?.tier} />
       <main style={{ flex: 1, overflow: 'auto' }}>{children}</main>
     </div>
   )

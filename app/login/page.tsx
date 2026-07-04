@@ -1,68 +1,238 @@
 'use client'
-
 import { useState } from 'react'
-import Link from 'next/link'
-import { useAuth } from '@/components/AuthProvider'
+import { createClient } from '@/lib/supabase-browser'
+import { useRouter } from 'next/navigation'
+import { Zap, Phone, ArrowRight, Loader2, ShieldCheck } from 'lucide-react'
+
+type Step = 'phone' | 'otp' | 'setup'
 
 export default function LoginPage() {
-  const { signIn, signUp, error } = useAuth()
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [step, setStep]       = useState<Step>('phone')
+  const [phone, setPhone]     = useState('')
+  const [otp, setOtp]         = useState('')
+  const [name, setName]       = useState('')
+  const [bizName, setBizName] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState('')
+  const router = useRouter()
+  const supabase = createClient()
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
-    setBusy(true)
-    try {
-      if (mode === 'login') {
-        await signIn(email, password)
-      } else {
-        await signUp(email, password)
-      }
-    } finally {
-      setBusy(false)
-    }
+  // Format phone to E.164 for SA numbers
+  function formatPhone(raw: string): string {
+    const digits = raw.replace(/\D/g, '')
+    if (digits.startsWith('0') && digits.length === 10) return `+27${digits.slice(1)}`
+    if (digits.startsWith('27')) return `+${digits}`
+    if (digits.startsWith('+27')) return raw
+    return `+27${digits}`
   }
 
+  async function sendOTP() {
+    setError('')
+    setLoading(true)
+    const formatted = formatPhone(phone)
+    const { error } = await supabase.auth.signInWithOtp({
+      phone: formatted,
+      options: { channel: 'whatsapp' } // OTP via WhatsApp
+    })
+    setLoading(false)
+    if (error) { setError(error.message); return }
+    setStep('otp')
+  }
+
+  async function verifyOTP() {
+    setError('')
+    setLoading(true)
+    const formatted = formatPhone(phone)
+    const { data, error } = await supabase.auth.verifyOtp({
+      phone: formatted, token: otp, type: 'sms'
+    })
+    if (error) { setError(error.message); setLoading(false); return }
+
+    // Check if business already exists (WhatsApp-created)
+    const cleanPhone = formatted
+    const { data: business } = await supabase
+      .from('businesses').select('id').eq('phone', cleanPhone).single()
+
+    if (business) {
+      // Existing business — go straight to dashboard
+      router.push('/dashboard')
+    } else {
+      // New user — collect basic info to create business record
+      setStep('setup')
+    }
+    setLoading(false)
+  }
+
+  async function createBusiness() {
+    setError('')
+    setLoading(true)
+    const formatted = formatPhone(phone)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setError('Session expired. Please try again.'); setLoading(false); return }
+
+    const { error } = await supabase.from('businesses').insert({
+      owner_name:    name,
+      business_name: bizName,
+      phone:         formatted,
+      language:      'en',
+      business_type: 'Other',
+      tier:          'free',
+      status:        'trial',
+      trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    })
+
+    setLoading(false)
+    if (error) { setError(error.message); return }
+    router.push('/dashboard')
+  }
+
+  const Input = ({ label, value, onChange, placeholder, type = 'text' }: any) => (
+    <div style={{ marginBottom: 16 }}>
+      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#2D2926', marginBottom: 6 }}>{label}</label>
+      <input
+        type={type} value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{
+          width: '100%', padding: '11px 14px', borderRadius: 9,
+          border: '1.5px solid #E2E8F0', fontSize: 14, outline: 'none',
+          boxSizing: 'border-box' as const, transition: 'border-color 0.15s',
+          fontFamily: 'inherit',
+        }}
+        onFocus={e => e.target.style.borderColor = '#156C7D'}
+        onBlur={e  => e.target.style.borderColor = '#E2E8F0'}
+      />
+    </div>
+  )
+
   return (
-    <main style={{ minHeight: '100vh', background: '#F8FAFB', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ width: '100%', maxWidth: 420, background: '#fff', border: '1px solid #E2E8F0', borderRadius: 16, padding: 28, boxShadow: '0 16px 40px rgba(15, 23, 42, 0.08)' }}>
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#1F5C6B' }}>KasiCommerce</div>
-          <div style={{ marginTop: 6, color: '#718096', fontSize: 14 }}>Sign in to personalise your business dashboard.</div>
+    <div style={{
+      minHeight: '100vh', background: 'linear-gradient(135deg, #1F5C6B 0%, #156C7D 60%, #0F4A58 100%)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+    }}>
+      <div style={{ width: '100%', maxWidth: 420 }}>
+
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: 14, background: '#C45C2E',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 16px',
+          }}>
+            <Zap size={26} color="#fff" />
+          </div>
+          <div style={{ color: '#fff', fontWeight: 800, fontSize: 24 }}>KasiCommerce</div>
+          <div style={{ color: '#8FBFC9', fontSize: 13, marginTop: 4 }}>Your Business Operating System</div>
         </div>
 
-        <div style={{ display: 'flex', background: '#F8FAFB', borderRadius: 10, padding: 4, marginBottom: 20 }}>
-          <button type="button" onClick={() => setMode('login')} style={{ flex: 1, border: 'none', borderRadius: 8, padding: '10px 12px', fontWeight: 700, cursor: 'pointer', background: mode === 'login' ? '#1F5C6B' : 'transparent', color: mode === 'login' ? '#fff' : '#4A5568' }}>
-            Login
-          </button>
-          <button type="button" onClick={() => setMode('signup')} style={{ flex: 1, border: 'none', borderRadius: 8, padding: '10px 12px', fontWeight: 700, cursor: 'pointer', background: mode === 'signup' ? '#1F5C6B' : 'transparent', color: mode === 'signup' ? '#fff' : '#4A5568' }}>
-            Create account
-          </button>
+        {/* Card */}
+        <div style={{ background: '#fff', borderRadius: 16, padding: 32, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+
+          {step === 'phone' && (
+            <>
+              <h2 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 700, color: '#2D2926' }}>Sign in</h2>
+              <p style={{ margin: '0 0 24px', fontSize: 13, color: '#718096', lineHeight: 1.5 }}>
+                Use the same WhatsApp number you registered with. We'll send you a verification code.
+              </p>
+              <Input
+                label="WhatsApp Number"
+                value={phone}
+                onChange={setPhone}
+                placeholder="e.g. 0821234567"
+                type="tel"
+              />
+              {error && <div style={{ color: '#DC2626', fontSize: 12, marginBottom: 14 }}>{error}</div>}
+              <button
+                onClick={sendOTP}
+                disabled={loading || phone.length < 9}
+                style={{
+                  width: '100%', padding: '12px', borderRadius: 9,
+                  background: loading || phone.length < 9 ? '#CBD5E0' : '#156C7D',
+                  border: 'none', color: '#fff', fontWeight: 700, fontSize: 14,
+                  cursor: loading || phone.length < 9 ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}
+              >
+                {loading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Phone size={16} />}
+                {loading ? 'Sending...' : 'Send WhatsApp Code'}
+              </button>
+              <div style={{ marginTop: 20, padding: '12px 14px', background: '#F0FDF4', borderRadius: 8, display: 'flex', gap: 8 }}>
+                <ShieldCheck size={14} color="#059669" style={{ flexShrink: 0, marginTop: 1 }} />
+                <div style={{ fontSize: 11, color: '#065F46' }}>
+                  If you already use KasiCommerce via WhatsApp, log in with the same number to access your existing data.
+                </div>
+              </div>
+            </>
+          )}
+
+          {step === 'otp' && (
+            <>
+              <h2 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 700, color: '#2D2926' }}>Enter your code</h2>
+              <p style={{ margin: '0 0 24px', fontSize: 13, color: '#718096' }}>
+                We sent a 6-digit code to <strong>{phone}</strong> via WhatsApp.
+              </p>
+              <Input
+                label="6-Digit Code"
+                value={otp}
+                onChange={setOtp}
+                placeholder="e.g. 123456"
+                type="number"
+              />
+              {error && <div style={{ color: '#DC2626', fontSize: 12, marginBottom: 14 }}>{error}</div>}
+              <button
+                onClick={verifyOTP}
+                disabled={loading || otp.length < 6}
+                style={{
+                  width: '100%', padding: '12px', borderRadius: 9,
+                  background: loading || otp.length < 6 ? '#CBD5E0' : '#156C7D',
+                  border: 'none', color: '#fff', fontWeight: 700, fontSize: 14,
+                  cursor: loading || otp.length < 6 ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}
+              >
+                {loading ? <Loader2 size={16} /> : <ArrowRight size={16} />}
+                {loading ? 'Verifying...' : 'Verify & Sign In'}
+              </button>
+              <button
+                onClick={() => setStep('phone')}
+                style={{ width: '100%', marginTop: 10, padding: '10px', background: 'none', border: 'none', color: '#718096', fontSize: 13, cursor: 'pointer' }}
+              >
+                ← Back
+              </button>
+            </>
+          )}
+
+          {step === 'setup' && (
+            <>
+              <h2 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 700, color: '#2D2926' }}>Set up your account</h2>
+              <p style={{ margin: '0 0 24px', fontSize: 13, color: '#718096' }}>
+                You're new here! Tell us about your business to get started.
+              </p>
+              <Input label="Your Name"      value={name}    onChange={setName}    placeholder="e.g. Nomsa Dlamini" />
+              <Input label="Business Name"  value={bizName} onChange={setBizName} placeholder="e.g. Nomsa's Spaza" />
+              {error && <div style={{ color: '#DC2626', fontSize: 12, marginBottom: 14 }}>{error}</div>}
+              <button
+                onClick={createBusiness}
+                disabled={loading || !name || !bizName}
+                style={{
+                  width: '100%', padding: '12px', borderRadius: 9,
+                  background: loading || !name || !bizName ? '#CBD5E0' : '#C45C2E',
+                  border: 'none', color: '#fff', fontWeight: 700, fontSize: 14,
+                  cursor: loading || !name || !bizName ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}
+              >
+                {loading ? <Loader2 size={16} /> : <ArrowRight size={16} />}
+                {loading ? 'Creating...' : 'Create My Account'}
+              </button>
+            </>
+          )}
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, fontWeight: 600, color: '#2D2926' }}>
-            Email
-            <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} style={{ border: '1px solid #CBD5E0', borderRadius: 8, padding: '10px 12px', fontSize: 14 }} placeholder="you@example.com" />
-          </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, fontWeight: 600, color: '#2D2926' }}>
-            Password
-            <input type="password" required value={password} onChange={(event) => setPassword(event.target.value)} style={{ border: '1px solid #CBD5E0', borderRadius: 8, padding: '10px 12px', fontSize: 14 }} placeholder="At least 6 characters" />
-          </label>
-
-          {error && <div style={{ color: '#C53030', background: '#FFF5F5', border: '1px solid #FED7D7', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>{error}</div>}
-
-          <button type="submit" disabled={busy} style={{ border: 'none', borderRadius: 8, padding: '12px 14px', fontWeight: 700, cursor: busy ? 'wait' : 'pointer', background: '#C45C2E', color: '#fff' }}>
-            {busy ? 'Please wait...' : mode === 'login' ? 'Sign in' : 'Create account'}
-          </button>
-        </form>
-
-        <div style={{ marginTop: 16, fontSize: 13, color: '#718096' }}>
-          Need a quick preview? <Link href="/dashboard" style={{ color: '#156C7D', fontWeight: 600 }}>Open the dashboard</Link>
+        <div style={{ textAlign: 'center', marginTop: 20, color: '#8FBFC9', fontSize: 12 }}>
+          Protected by Supabase Auth · POPIA Compliant
         </div>
       </div>
-    </main>
+    </div>
   )
 }
