@@ -1,5 +1,6 @@
 'use client'
 import { TopBar } from '@/components/TopBar'
+import { useAuth } from '@/components/AuthProvider'
 import {
   TrendingUp, TrendingDown, Users, ShoppingBag,
   AlertTriangle, BookOpen, ShieldCheck, CreditCard,
@@ -58,9 +59,12 @@ const Card = ({ children, style = {} }: { children: React.ReactNode; style?: Rea
 )
 
 export default function DashboardPage() {
+  const { user } = useAuth()
+  const firstName = user?.email?.split('@')[0]?.replace(/[._-]/g, ' ') ?? 'there'
+
   return (
     <div>
-      <TopBar title="Dashboard" subtitle="Welcome back — here is your business overview" />
+      <TopBar title="Dashboard" subtitle={`Welcome back, ${firstName} — here is your business overview`} />
       <div style={{ padding: '24px 28px', maxWidth: 1200 }}>
 
         {/* Stats row */}

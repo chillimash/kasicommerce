@@ -1,7 +1,11 @@
 'use client'
 import { Bell, Search, User } from 'lucide-react'
+import { useAuth } from '@/components/AuthProvider'
 
 export function TopBar({ title, subtitle }: { title: string; subtitle?: string }) {
+  const { user, signOut } = useAuth()
+  const displayName = user?.email?.split('@')[0] ?? 'there'
+
   return (
     <header style={{
       height: 64, background: '#fff',
@@ -31,12 +35,22 @@ export function TopBar({ title, subtitle }: { title: string; subtitle?: string }
           width: 8, height: 8, borderRadius: '50%', background: '#C45C2E'
         }} />
       </button>
-      <div style={{
-        width: 36, height: 36, borderRadius: '50%',
-        background: '#156C7D', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        cursor: 'pointer'
-      }}>
-        <User size={16} color="#fff" />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#2D2926' }}>{displayName}</div>
+          <div style={{ fontSize: 11, color: '#718096' }}>{user?.email ?? 'Authenticated user'}</div>
+        </div>
+        <button
+          onClick={() => signOut()}
+          style={{
+            width: 36, height: 36, borderRadius: '50%',
+            background: '#156C7D', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', border: 'none'
+          }}
+          title="Sign out"
+        >
+          <User size={16} color="#fff" />
+        </button>
       </div>
     </header>
   )
