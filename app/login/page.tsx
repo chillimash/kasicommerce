@@ -6,6 +6,36 @@ import { Zap, Phone, ArrowRight, Loader2, ShieldCheck } from 'lucide-react'
 
 type Step = 'phone' | 'otp' | 'setup'
 
+type InputProps = {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  type?: string
+}
+
+function Input({ label, value, onChange, placeholder, type = 'text' }: InputProps) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#2D2926', marginBottom: 6 }}>{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{
+          width: '100%', padding: '11px 14px', borderRadius: 9,
+          border: '1.5px solid #E2E8F0', fontSize: 14, outline: 'none',
+          boxSizing: 'border-box' as const, transition: 'border-color 0.15s',
+          fontFamily: 'inherit',
+        }}
+        onFocus={e => e.target.style.borderColor = '#156C7D'}
+        onBlur={e => e.target.style.borderColor = '#E2E8F0'}
+      />
+    </div>
+  )
+}
+
 export default function LoginPage() {
   const [step, setStep]       = useState<Step>('phone')
   const [phone, setPhone]     = useState('')
@@ -85,25 +115,6 @@ export default function LoginPage() {
     if (error) { setError(error.message); return }
     router.push('/dashboard')
   }
-
-  const Input = ({ label, value, onChange, placeholder, type = 'text' }: any) => (
-    <div style={{ marginBottom: 16 }}>
-      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#2D2926', marginBottom: 6 }}>{label}</label>
-      <input
-        type={type} value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        style={{
-          width: '100%', padding: '11px 14px', borderRadius: 9,
-          border: '1.5px solid #E2E8F0', fontSize: 14, outline: 'none',
-          boxSizing: 'border-box' as const, transition: 'border-color 0.15s',
-          fontFamily: 'inherit',
-        }}
-        onFocus={e => e.target.style.borderColor = '#156C7D'}
-        onBlur={e  => e.target.style.borderColor = '#E2E8F0'}
-      />
-    </div>
-  )
 
   return (
     <div style={{
