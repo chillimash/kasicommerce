@@ -10,7 +10,10 @@ export default function Home() {
           The all-in-one business operating system for South African township and micro-entrepreneurs.
         </p>
         <div style={{ display:'flex', gap:12, justifyContent:'center', flexWrap:'wrap' }}>
-          <Link href="/dashboard" style={{ background:'#C45C2E', color:'#fff', padding:'13px 28px', borderRadius:9, fontWeight:700, fontSize:14, textDecoration:'none' }}>
+          <Link href="/login" style={{ background:'#C45C2E', color:'#fff', padding:'13px 28px', borderRadius:9, fontWeight:700, fontSize:14, textDecoration:'none' }}>
+            Log in with WhatsApp
+          </Link>
+          <Link href="/dashboard" style={{ background:'rgba(255,255,255,0.1)', color:'#fff', padding:'13px 28px', borderRadius:9, fontWeight:600, fontSize:14, textDecoration:'none', border:'1px solid rgba(255,255,255,0.2)' }}>
             Open Dashboard
           </Link>
           <a href="https://wa.me/27000000000" style={{ background:'rgba(255,255,255,0.1)', color:'#fff', padding:'13px 28px', borderRadius:9, fontWeight:600, fontSize:14, textDecoration:'none', border:'1px solid rgba(255,255,255,0.2)' }}>
