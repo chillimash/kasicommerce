@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { sendWhatsApp, getMessage, BotState } from '@/lib/whatsapp'
+import {
+  calculateTurnoverTax, qualifiesForTurnoverTax,
+  calculateEmployeeCost, calculateVAT,
+  generateComplianceCalendar
+} from '@/lib/tax-engine'
 import twilio from 'twilio'
 
 async function getOrCreateSession(phone: string) {
@@ -18,10 +23,6 @@ async function getOrCreateSession(phone: string) {
   return newSession
 }
 
-// async function updateSession(phone: string, state: BotState, context: Record<string, unknown>) {
-//   await supabase.from('whatsapp_sessions')
-//     .upsert({ phone, state, context, last_message_at: new Date().toISOString() })
-// }
 async function updateSession(phone: string, state: BotState, context: Record<string, unknown>) {
   await supabase.from('whatsapp_sessions')
     .update({ state, context, last_message_at: new Date().toISOString() })
@@ -123,8 +124,148 @@ async function processMessage(phone: string, body: string): Promise<string> {
       return getMessage('LOG_CANCEL',lang)
     }
     case 'COMPLY_MENU': {
-      if (input==='4') return `📅 *Upcoming Deadlines*\n\n• PAYE: 7th of every month\n• VAT: 25th of end of period\n• UIF: 7th of every month\n\nType *MENU* to go back.`
-      return `This feature is coming soon.\n\nType *MENU* to go back.`
+      if (input==='1') { await updateSession(phone,'TT_Q1',ctx); return getMessage('TT_Q1',lang) }
+      if (input==='2') { await updateSession(phone,'CALC_Q1',ctx); return getMessage('CALC_Q1',lang) }
+      if (input==='3') {
+        // Generate compliance calendar from business tax registration
+        const { data: taxReg } = await supabase
+          .from('tax_registrations').select('*')
+          .eq('business_id', ctx.business_id as string).single()
+        const { data: txns } = await supabase
+          .from('transactions').select('type,amount')
+          .eq('business_id', ctx.business_id as string)
+        const monthlyIncome = txns?.filter((t:any)=>t.type==='income')
+          .reduce((s:number,t:any)=>s+t.amount,0)||0
+        const events = generateComplianceCalendar(
+          taxReg?.has_paye || false,
+          taxReg?.has_vat || false,
+          taxReg?.on_turnover_tax || true,
+          taxReg?.employee_count ? monthlyIncome/taxReg.employee_count : 0,
+          monthlyIncome / Math.max(1, new Date().getMonth())
+        )
+        const urgent = events.filter(e=>e.urgent||e.overdue).slice(0,3)
+        const upcoming = events.filter(e=>!e.urgent&&!e.overdue).slice(0,3)
+        let cal = `📅 *Your Compliance Calendar*\n\n`
+        if (urgent.length) {
+          cal += `🔴 *Urgent / Overdue:*\n`
+          urgent.forEach(e=>{
+            cal += `• ${e.label}\n  Due: ${e.dueDate.toLocaleDateString('en-ZA')}\n`
+            if (e.estimatedAmount) cal += `  Est: R${e.estimatedAmount.toFixed(2)}\n`
+          })
+          cal += `\n`
+        }
+        if (upcoming.length) {
+          cal += `🟡 *Upcoming:*\n`
+          upcoming.forEach(e=>{
+            cal += `• ${e.label}\n  Due: ${e.dueDate.toLocaleDateString('en-ZA')}\n`
+          })
+        }
+        cal += `\nType *MENU* to go back.`
+        await updateSession(phone,'COMPLY_MENU',ctx)
+        return cal
+      }
+      if (input==='4') { await updateSession(phone,'PAYE_Q1',ctx); return getMessage('PAYE_Q1',lang) }
+      if (input==='5') {
+        return `📅 *Key Deadlines*\n\n• EMP201 (PAYE/UIF/SDL): 7th of each month\n• VAT201: 25th of every 2nd month\n• Turnover Tax: 28 February annually\n• Provisional Tax 1st: 31 August\n• Provisional Tax 2nd: 28 February\n• EMP501 Reconciliation: 31 May\n\nType *MENU* to go back.`
+      }
+      return getMessage('COMPLY_MENU',lang)
+    }
+
+    // ─── Turnover Tax Qualifier ─────────────────────────────────────
+    case 'TT_Q1': {
+      const turnover = parseFloat(input.replace(/[^0-9.]/g,''))
+      if (isNaN(turnover)||turnover<=0) return `Please enter a valid amount (e.g. 450000 for R450,000)`
+      await updateSession(phone,'TT_Q2',{...ctx, tt_turnover: turnover})
+      return getMessage('TT_Q2',lang)
+    }
+    case 'TT_Q2': {
+      const multipleBusinesses = input==='2'
+      await updateSession(phone,'TT_Q3',{...ctx, tt_multiple_biz: multipleBusinesses})
+      return getMessage('TT_Q3',lang)
+    }
+    case 'TT_Q3': {
+      const isPublic = input==='2'
+      const turnover = ctx.tt_turnover as number
+      const multipleBiz = ctx.tt_multiple_biz as boolean
+      const result = qualifiesForTurnoverTax(turnover, multipleBiz?2:1, isPublic, 0)
+      await updateSession(phone,'COMPLY_MENU',{...ctx})
+      if (result.qualifies) {
+        const tt = calculateTurnoverTax(turnover)
+        const msg = getMessage('TT_QUALIFIES',lang)
+          .replace('{amount}', `R${tt.taxDue.toLocaleString('en-ZA',{minimumFractionDigits:2})} per year`)
+        // Save to tax_registrations if not exists
+        const { data: existing } = await supabase.from('tax_registrations')
+          .select('id').eq('business_id', ctx.business_id as string).single()
+        if (!existing) {
+          await supabase.from('tax_registrations').insert({
+            business_id: ctx.business_id as string,
+            on_turnover_tax: true,
+            annual_turnover_est: turnover,
+          })
+        }
+        return msg
+      } else {
+        return getMessage('TT_NOT_QUALIFY',lang).replace('{reason}', result.reason||'Unknown')
+      }
+    }
+
+    // ─── Tax Liability Calculator ──────────────────────────────────
+    case 'CALC_Q1': {
+      const income = parseFloat(input.replace(/[^0-9.]/g,''))
+      if (isNaN(income)||income<0) return `Please enter a valid amount (e.g. 12500)`
+      await updateSession(phone,'CALC_Q2',{...ctx, calc_income: income})
+      return getMessage('CALC_Q2',lang)
+    }
+    case 'CALC_Q2': {
+      const expenses = parseFloat(input.replace(/[^0-9.]/g,''))||0
+      const income   = ctx.calc_income as number
+      const profit   = Math.max(0, income - expenses)
+      const annualProfit   = profit * 12
+      const annualIncome   = income * 12
+      // Determine tax type
+      const { data: taxReg } = await supabase.from('tax_registrations')
+        .select('*').eq('business_id', ctx.business_id as string).single()
+      let taxDetail = ''
+      if (!taxReg || taxReg.on_turnover_tax) {
+        const tt = calculateTurnoverTax(annualIncome)
+        const monthly = tt.taxDue / 12
+        taxDetail = `📋 Turnover Tax (annual): R${tt.taxDue.toFixed(2)}\n    Monthly estimate: R${monthly.toFixed(2)}`
+      } else if (taxReg.has_vat) {
+        const vat = calculateVAT(income, expenses)
+        taxDetail = `📋 VAT payable this period: R${vat.vatPayable.toFixed(2)}`
+      } else {
+        taxDetail = `📋 Based on your profile, check with KasiComply calendar`
+      }
+      await updateSession(phone,'COMPLY_MENU',ctx)
+      return getMessage('CALC_RESULT',lang)
+        .replace('{income}',   income.toFixed(2))
+        .replace('{expenses}', expenses.toFixed(2))
+        .replace('{profit}',   profit.toFixed(2))
+        .replace('{tax_detail}', taxDetail)
+    }
+
+    // ─── PAYE Calculator ───────────────────────────────────────────
+    case 'PAYE_Q1': {
+      const count = parseInt(input)
+      if (isNaN(count)||count<1) return `Please enter a valid number (e.g. 2)`
+      await updateSession(phone,'PAYE_Q2',{...ctx, paye_count: count})
+      return getMessage('PAYE_Q2',lang)
+    }
+    case 'PAYE_Q2': {
+      const salary = parseFloat(input.replace(/[^0-9.]/g,''))
+      if (isNaN(salary)||salary<=0) return `Please enter a valid salary amount`
+      const count   = ctx.paye_count as number
+      const payroll = salary
+      const costs   = calculateEmployeeCost(salary/count, 30, payroll)
+      await updateSession(phone,'COMPLY_MENU',ctx)
+      return getMessage('PAYE_RESULT',lang)
+        .replace('{gross}',   payroll.toFixed(2))
+        .replace('{paye}',    costs.paye.toFixed(2))
+        .replace('{uif_ee}',  costs.employeeUIF.toFixed(2))
+        .replace('{net}',     costs.netSalary.toFixed(2))
+        .replace('{uif_er}',  costs.employerUIF.toFixed(2))
+        .replace('{sdl}',     costs.sdl.toFixed(2))
+        .replace('{total}',   costs.totalCost.toFixed(2))
     }
     case 'STORE_MENU': {
       if (input==='3') {
