@@ -1,25 +1,32 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useAuth } from '@/components/AuthProvider'
 import { TopBar } from '@/components/TopBar'
-import { Plus, TrendingUp, TrendingDown, Search, Filter, Download } from 'lucide-react'
-
-const mockTx = [
-  { id:1, date:'2026-06-30', desc:'Sold chickens',  type:'income',  amount:450,   cat:'Sales',    src:'WhatsApp' },
-  { id:2, date:'2026-06-30', desc:'Cooking oil',    type:'expense', amount:84,    cat:'Stock',    src:'Dashboard' },
-  { id:3, date:'2026-06-29', desc:'Bread sales',    type:'income',  amount:320,   cat:'Sales',    src:'WhatsApp' },
-  { id:4, date:'2026-06-29', desc:'Airtime stock',  type:'expense', amount:500,   cat:'Stock',    src:'WhatsApp' },
-  { id:5, date:'2026-06-28', desc:'Catering order', type:'income',  amount:1200,  cat:'Catering', src:'Dashboard' },
-  { id:6, date:'2026-06-28', desc:'Gas cylinder',   type:'expense', amount:280,   cat:'Utilities',src:'Dashboard' },
-]
+import { Plus, TrendingUp, TrendingDown, Download } from 'lucide-react'
 
 export default function BooksPage() {
+  const { user } = useAuth()
   const [showForm, setShowForm] = useState(false)
   const [txType, setTxType] = useState<'income'|'expense'>('income')
   const [filter, setFilter] = useState<'all'|'income'|'expense'>('all')
+  const [data, setData] = useState<any>(null)
 
-  const filtered = mockTx.filter(t => filter === 'all' || t.type === filter)
-  const income  = mockTx.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0)
-  const expense = mockTx.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0)
+  useEffect(() => {
+    if (!user?.email) return
+
+    const loadData = async () => {
+      const response = await fetch(`/api/me?email=${encodeURIComponent(user.email!)}&section=books`)
+      const json = await response.json()
+      setData(json)
+    }
+
+    void loadData()
+  }, [user?.email])
+
+  const transactions = useMemo(() => data?.transactions || [], [data])
+  const filtered = transactions.filter((t: any) => filter === 'all' || t.type === filter)
+  const income = transactions.filter((t: any) => t.type === 'income').reduce((sum: number, t: any) => sum + Number(t.amount), 0)
+  const expense = transactions.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + Number(t.amount), 0)
 
   return (
     <div>
@@ -86,16 +93,20 @@ export default function BooksPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((t,i) => (
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ padding:'20px', textAlign:'center', color:'#718096', fontSize:13 }}>No transactions found for this business yet.</td>
+                </tr>
+              ) : filtered.map((t: any, i: number) => (
                 <tr key={t.id} style={{ borderTop:'1px solid #F3F4F6' }}>
-                  <td style={{ padding:'13px 20px', fontSize:12, color:'#718096' }}>{t.date}</td>
-                  <td style={{ padding:'13px 20px', fontSize:13, fontWeight:500, color:'#2D2926' }}>{t.desc}</td>
+                  <td style={{ padding:'13px 20px', fontSize:12, color:'#718096' }}>{new Date(t.created_at).toLocaleDateString('en-ZA')}</td>
+                  <td style={{ padding:'13px 20px', fontSize:13, fontWeight:500, color:'#2D2926' }}>{t.description}</td>
                   <td style={{ padding:'13px 20px' }}>
-                    <span style={{ background:'#F3F4F6', color:'#4A5568', fontSize:11, fontWeight:500, padding:'3px 8px', borderRadius:4 }}>{t.cat}</span>
+                    <span style={{ background:'#F3F4F6', color:'#4A5568', fontSize:11, fontWeight:500, padding:'3px 8px', borderRadius:4 }}>{t.category || 'Uncategorised'}</span>
                   </td>
-                  <td style={{ padding:'13px 20px', fontSize:12, color:'#718096' }}>{t.src}</td>
+                  <td style={{ padding:'13px 20px', fontSize:12, color:'#718096' }}>{t.source}</td>
                   <td style={{ padding:'13px 20px', fontSize:14, fontWeight:600, color: t.type==='income'?'#059669':'#DC2626' }}>
-                    {t.type==='income'?'+':'-'}R{t.amount.toLocaleString()}
+                    {t.type==='income'?'+':'-'}R{Number(t.amount).toLocaleString()}
                   </td>
                 </tr>
               ))}

@@ -1,5 +1,6 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useAuth } from '@/components/AuthProvider'
 import { TopBar } from '@/components/TopBar'
 import {
   ShieldCheck, AlertTriangle, CheckCircle, Clock,
@@ -13,16 +14,15 @@ import {
   type ComplianceEvent
 } from '@/lib/tax-engine'
 
-// ─── Mock business profile (replace with Supabase data in production) ─────────
-const MOCK_PROFILE = {
-  annualTurnover: 540_000,
-  monthlyRevenue: 45_000,
-  monthlyExpenses: 18_000,
-  hasVAT: false,
-  hasPAYE: true,
-  onTurnoverTax: true,
-  employeeCount: 2,
-  monthlyPayroll: 8_500,
+type ProfileData = {
+  annualTurnover: number
+  monthlyRevenue: number
+  monthlyExpenses: number
+  hasVAT: boolean
+  hasPAYE: boolean
+  onTurnoverTax: boolean
+  employeeCount: number
+  monthlyPayroll: number
 }
 
 const TEAL   = '#156C7D'
@@ -62,7 +62,7 @@ function Pill({ label, color, bg }: { label: string; color: string; bg: string }
 }
 
 // ─── Turnover Tax Panel ───────────────────────────────────────────────────────
-function TurnoverTaxPanel({ profile }: { profile: typeof MOCK_PROFILE }) {
+function TurnoverTaxPanel({ profile }: { profile: ProfileData }) {
   const [open, setOpen] = useState(true)
   const result   = useMemo(() => qualifiesForTurnoverTax(profile.annualTurnover, 1, false, 0), [profile])
   const ttCalc   = useMemo(() => calculateTurnoverTax(profile.annualTurnover), [profile])
@@ -136,7 +136,7 @@ function TurnoverTaxPanel({ profile }: { profile: typeof MOCK_PROFILE }) {
 }
 
 // ─── Tax Liability Calculator ─────────────────────────────────────────────────
-function TaxCalculator({ profile }: { profile: typeof MOCK_PROFILE }) {
+function TaxCalculator({ profile }: { profile: ProfileData }) {
   const [open, setOpen]     = useState(false)
   const [income, setIncome]   = useState(profile.monthlyRevenue.toString())
   const [expenses, setExpenses] = useState(profile.monthlyExpenses.toString())
@@ -241,7 +241,7 @@ function TaxCalculator({ profile }: { profile: typeof MOCK_PROFILE }) {
 }
 
 // ─── PAYE Calculator ──────────────────────────────────────────────────────────
-function PAYECalculator({ profile }: { profile: typeof MOCK_PROFILE }) {
+function PAYECalculator({ profile }: { profile: ProfileData }) {
   const [open, setOpen]       = useState(false)
   const [salary, setSalary]   = useState(profile.monthlyPayroll.toString())
   const [count, setCount]     = useState(profile.employeeCount.toString())
@@ -356,7 +356,7 @@ function PAYECalculator({ profile }: { profile: typeof MOCK_PROFILE }) {
 }
 
 // ─── Compliance Calendar ──────────────────────────────────────────────────────
-function ComplianceCalendar({ profile }: { profile: typeof MOCK_PROFILE }) {
+function ComplianceCalendar({ profile }: { profile: ProfileData }) {
   const events = useMemo(() => generateComplianceCalendar(
     profile.hasPAYE,
     profile.hasVAT,
@@ -439,8 +439,43 @@ function ComplianceCalendar({ profile }: { profile: typeof MOCK_PROFILE }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ComplyPage() {
-  const profile = MOCK_PROFILE
-  const tt      = calculateTurnoverTax(profile.annualTurnover)
+  const { user } = useAuth()
+  const [profile, setProfile] = useState<ProfileData>({
+    annualTurnover: 0,
+    monthlyRevenue: 0,
+    monthlyExpenses: 0,
+    hasVAT: false,
+    hasPAYE: false,
+    onTurnoverTax: false,
+    employeeCount: 0,
+    monthlyPayroll: 0,
+  })
+
+  useEffect(() => {
+    if (!user?.email) return
+
+    const loadData = async () => {
+      const response = await fetch(`/api/me?email=${encodeURIComponent(user.email!)}&section=comply`)
+      const json = await response.json()
+      const taxRegistration = json?.taxRegistrations?.[0]
+      const monthlyRevenue = Number(json?.assessments?.[0]?.gross_income || 0)
+      const monthlyExpenses = Number(json?.assessments?.[0]?.total_expenses || 0)
+      setProfile({
+        annualTurnover: Number(taxRegistration?.annual_turnover_est || monthlyRevenue * 12 || 0),
+        monthlyRevenue,
+        monthlyExpenses,
+        hasVAT: Boolean(taxRegistration?.has_vat),
+        hasPAYE: Boolean(taxRegistration?.has_paye),
+        onTurnoverTax: Boolean(taxRegistration?.on_turnover_tax),
+        employeeCount: Number(taxRegistration?.employee_count || 0),
+        monthlyPayroll: Number(taxRegistration?.employee_count ? monthlyRevenue * 0.1 : 0),
+      })
+    }
+
+    void loadData()
+  }, [user?.email])
+
+  const tt = calculateTurnoverTax(profile.annualTurnover)
   const costs   = calculateEmployeeCost(
     profile.monthlyPayroll / Math.max(1, profile.employeeCount),
     30,

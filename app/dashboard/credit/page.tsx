@@ -1,8 +1,23 @@
 'use client'
+import { useEffect, useState } from 'react'
+import { useAuth } from '@/components/AuthProvider'
 import { TopBar } from '@/components/TopBar'
 import { CheckCircle } from 'lucide-react'
 export default function CreditPage() {
-  const income = 12450
+  const { user } = useAuth()
+  const [income, setIncome] = useState(0)
+
+  useEffect(() => {
+    if (!user?.email) return
+
+    const loadData = async () => {
+      const response = await fetch(`/api/me?email=${encodeURIComponent(user.email!)}&section=credit`)
+      const json = await response.json()
+      setIncome(Number(json?.annualIncome || 0))
+    }
+
+    void loadData()
+  }, [user?.email])
   return (
     <div>
       <TopBar title="KasiCredit" subtitle="Business loans from R1,000 to R50,000 via partner lenders" />

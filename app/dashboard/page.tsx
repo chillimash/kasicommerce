@@ -1,4 +1,5 @@
 'use client'
+import { useEffect, useMemo, useState } from 'react'
 import { TopBar } from '@/components/TopBar'
 import { useAuth } from '@/components/AuthProvider'
 import {
@@ -7,49 +8,35 @@ import {
   ArrowUpRight, CheckCircle
 } from 'lucide-react'
 
-const stats = [
-  { label: 'Total Income',   value: 'R 12,450', sub: '+R2,100 this week',   icon: TrendingUp,   color: '#156C7D', bg: '#E8F4F7' },
-  { label: 'Total Expenses', value: 'R 4,820',  sub: '+R340 this week',     icon: TrendingDown, color: '#C45C2E', bg: '#FDF0EA' },
-  { label: 'Net Profit',     value: 'R 7,630',  sub: 'This month',          icon: TrendingUp,   color: '#059669', bg: '#D1FAE5' },
-  { label: 'Active Clients', value: '0',         sub: 'Via KasiStore',       icon: Users,        color: '#7C3AED', bg: '#EDE9FE' },
-]
-
 const pillars = [
   {
     name: 'KasiBooks',
     desc: 'Record income and expenses via WhatsApp or dashboard',
     icon: BookOpen, color: '#156C7D', bg: '#E8F4F7', status: 'LIVE',
     action: 'Log Transaction', href: '/dashboard/books',
-    stats: [{ l: 'This month', v: '14 entries' }, { l: 'Net balance', v: 'R 7,630' }]
+    stats: [{ l: 'Transactions', v: 'Live ledger' }, { l: 'Net balance', v: 'Live' }]
   },
   {
     name: 'KasiComply',
     desc: 'PAYE, UIF, SDL and VAT filing — stay SARS-compliant automatically',
     icon: ShieldCheck, color: '#C45C2E', bg: '#FDF0EA', status: 'BETA',
     action: 'View Filings', href: '/dashboard/comply',
-    stats: [{ l: 'Next deadline', v: 'PAYE — 7 Jul' }, { l: 'Status', v: 'Up to date' }]
+    stats: [{ l: 'Upcoming deadlines', v: 'Live' }, { l: 'Status', v: 'Synced' }]
   },
   {
     name: 'KasiStore',
     desc: 'Your mobile storefront — shareable via WhatsApp link',
     icon: ShoppingBag, color: '#7C3AED', bg: '#EDE9FE', status: 'BETA',
     action: 'Manage Store', href: '/dashboard/store',
-    stats: [{ l: 'Products', v: '0 listed' }, { l: 'Orders today', v: '0' }]
+    stats: [{ l: 'Products', v: 'Live' }, { l: 'Orders today', v: 'Live' }]
   },
   {
     name: 'KasiCredit',
     desc: 'Business loans from R1,000 to R50,000 via partner lenders',
     icon: CreditCard, color: '#059669', bg: '#D1FAE5', status: 'SOON',
     action: 'Check Eligibility', href: '/dashboard/credit',
-    stats: [{ l: 'Pre-qualify in', v: '30 days' }, { l: 'Max loan', v: 'Up to R50,000' }]
+    stats: [{ l: 'Eligibility', v: 'Live' }, { l: 'Max loan', v: 'Up to R50,000' }]
   },
-]
-
-const recentTx = [
-  { desc: 'Sold 3 chickens', type: 'income',  amount: 150,  time: '2h ago' },
-  { desc: 'Cooking oil x2',  type: 'expense', amount: 84,   time: '5h ago' },
-  { desc: 'Bread & rolls',   type: 'income',  amount: 320,  time: 'Yesterday' },
-  { desc: 'Airtime stock',   type: 'expense', amount: 500,  time: 'Yesterday' },
 ]
 
 const Card = ({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) => (
@@ -60,7 +47,34 @@ const Card = ({ children, style = {} }: { children: React.ReactNode; style?: Rea
 
 export default function DashboardPage() {
   const { user } = useAuth()
-  const firstName = user?.email?.split('@')[0]?.replace(/[._-]/g, ' ') ?? 'there'
+  const [data, setData] = useState<any>(null)
+  const firstName = useMemo(() => user?.email?.split('@')[0]?.replace(/[._-]/g, ' ') ?? 'there', [user?.email])
+
+  useEffect(() => {
+    if (!user?.email) return
+
+    const loadData = async () => {
+      const response = await fetch(`/api/me?email=${encodeURIComponent(user.email!)}&section=dashboard`)
+      const json = await response.json()
+      setData(json)
+    }
+
+    void loadData()
+  }, [user?.email])
+
+  const stats = [
+    { label: 'Total Income',   value: `R ${Number(data?.stats?.income || 0).toLocaleString()}`, sub: 'From your transactions', icon: TrendingUp, color: '#156C7D', bg: '#E8F4F7' },
+    { label: 'Total Expenses', value: `R ${Number(data?.stats?.expenses || 0).toLocaleString()}`, sub: 'Recorded spend', icon: TrendingDown, color: '#C45C2E', bg: '#FDF0EA' },
+    { label: 'Net Profit',     value: `R ${Number(data?.stats?.net || 0).toLocaleString()}`, sub: 'Live balance', icon: TrendingUp, color: '#059669', bg: '#D1FAE5' },
+    { label: 'Products Listed', value: `${Number(data?.stats?.productCount || 0)}`, sub: 'Via KasiStore', icon: Users, color: '#7C3AED', bg: '#EDE9FE' },
+  ]
+
+  const recentTx = (data?.recentTransactions || []).slice(0, 4).map((tx: any) => ({
+    desc: tx.description,
+    type: tx.type,
+    amount: Number(tx.amount),
+    time: new Date(tx.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' }),
+  }))
 
   return (
     <div>
@@ -138,7 +152,9 @@ export default function DashboardPage() {
               <a href="/dashboard/books" style={{ fontSize: 12, color: '#156C7D', textDecoration: 'none', fontWeight: 500 }}>View all →</a>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {recentTx.map((t, i) => (
+              {recentTx.length === 0 ? (
+                <div style={{ padding: '12px 0', color: '#718096', fontSize: 13 }}>No transactions logged yet for this business.</div>
+              ) : recentTx.map((t, i) => (
                 <div key={i} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '10px 0', borderBottom: i < recentTx.length - 1 ? '1px solid #F3F4F6' : 'none'
