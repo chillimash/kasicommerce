@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* KasiCommerce Brand — Vhuthu Finance Teal + Copper */
+  --color-teal:         #156C7D;
+  --color-teal-dark:    #1F5C6B;
+  --color-teal-light:   #E8F4F7;
+  --color-copper:       #C45C2E;
+  --color-copper-light: #E78F5C;
+  --color-copper-pale:  #FDF0EA;
+  --color-charcoal:     #2D2926;
+  --color-slate:        #4A5568;
+  --color-muted:        #718096;
+  --color-border:       #E2E8F0;
+  --color-surface:      #F8FAFB;
+  --color-white:        #FFFFFF;
+
+  /* Typography */
+  --font-display: 'Inter', system-ui, sans-serif;
+  --font-body:    'Inter', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', monospace;
+
+  /* Backgrounds */
+  --color-background: var(--color-white);
+  --color-foreground: var(--color-charcoal);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
