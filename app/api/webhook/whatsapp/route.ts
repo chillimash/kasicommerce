@@ -188,7 +188,8 @@ async function processMessage(phone: string, body: string): Promise<string> {
       const turnover = ctx.tt_turnover as number
       const multipleBiz = ctx.tt_multiple_biz as boolean
       const result = qualifiesForTurnoverTax(turnover, multipleBiz?2:1, isPublic, 0)
-      await updateSession(phone,'COMPLY_MENU',{...ctx})
+      // await updateSession(phone,'COMPLY_MENU',{...ctx})
+       await updateSession(phone, 'TT_RESULT', { ...ctx })
       if (result.qualifies) {
         const tt = calculateTurnoverTax(turnover)
         const msg = getMessage('TT_QUALIFIES',lang)
@@ -202,13 +203,24 @@ async function processMessage(phone: string, body: string): Promise<string> {
             on_turnover_tax: true,
             annual_turnover_est: turnover,
           })
-        }
+        }      
         return msg
       } else {
         return getMessage('TT_NOT_QUALIFY',lang).replace('{reason}', result.reason||'Unknown')
       }
     }
-
+    case 'TT_RESULT': {
+      if (input === '1') {
+        await updateSession(phone, 'COMPLY_MENU', { ...ctx })
+        return getMessage('TT_HOW_REGISTER', lang)
+      }
+      if (input === '2') {
+        await updateSession(phone, 'CALC_Q1', { ...ctx })
+        return getMessage('CALC_Q1', lang)
+      }
+      await updateSession(phone, 'MAIN_MENU', { ...ctx })
+      return getMessage('MAIN_MENU', lang)
+  }
     // ─── Tax Liability Calculator ──────────────────────────────────
     case 'CALC_Q1': {
       const income = parseFloat(input.replace(/[^0-9.]/g,''))
