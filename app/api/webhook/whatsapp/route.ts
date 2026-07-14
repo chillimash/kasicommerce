@@ -81,10 +81,36 @@ async function processMessage(phone: string, body: string): Promise<string> {
       if (input === '3') { await updateSession(phone, 'STORE_MENU', ctx);     return getMessage('STORE_MENU', lang) }
       if (input === '4') { await updateSession(phone, 'CREDIT_MENU', ctx);    return getMessage('CREDIT_MENU', lang) }
       if (input === '5') {
-        const { data: txns } = await supabase.from('transactions').select('type, amount').eq('business_id', ctx.business_id as string)
-        const income  = txns?.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0)||0
-        const expense = txns?.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0)||0
-        return `📈 *Your Summary*\n\n💚 Income: R${income.toFixed(2)}\n🔴 Expenses: R${expense.toFixed(2)}\n\n💰 *Net: R${(income-expense).toFixed(2)}*\n\nType *MENU* for options.`
+        // Always look up business by phone — never trust ctx.business_id alone
+        let businessId = ctx.business_id as string
+
+        if (!businessId) {
+          const { data: biz } = await supabase
+            .from('businesses').select('id').eq('phone', phone).single()
+          businessId = biz?.id
+          if (businessId) {
+            await updateSession(phone, 'MAIN_MENU', { ...ctx, business_id: businessId })
+          }
+        }
+
+        if (!businessId) {
+          return `No business found for this number. Please complete onboarding first.\n\nType *MENU* to go back.`
+        }
+
+        const { data: txns } = await supabase
+          .from('transactions')
+          .select('type, amount')
+          .eq('business_id', businessId)
+
+        const income  = txns?.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0) || 0
+        const expense = txns?.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0) || 0
+        const net     = income - expense
+
+        if (txns?.length === 0) {
+          return `📈 *Your Summary*\n\nNo transactions recorded yet.\n\nSend *1* to log your first income entry.\n\nType *MENU* for options.`
+        }
+
+        return `📈 *Your Summary*\n\n💚 Total Income:   R${income.toFixed(2)}\n🔴 Total Expenses: R${expense.toFixed(2)}\n\n💰 *Net Profit: R${net.toFixed(2)}*\n\n📊 ${txns?.length} transactions recorded.\n\nType *MENU* for options.`
       }
       return getMessage('UNKNOWN', lang)
     }
@@ -109,19 +135,33 @@ async function processMessage(phone: string, body: string): Promise<string> {
       return confirm
     }
     case 'BOOKS_CONFIRM': {
-      if (upper==='YES'||input==='1') {
+      if (upper === 'YES' || input === '1') {
+        // Defensive lookup — resolve business_id from phone if missing
+        let businessId = ctx.business_id as string
+        if (!businessId) {
+          const { data: biz } = await supabase
+            .from('businesses').select('id').eq('phone', phone).single()
+          businessId = biz?.id
+        }
+
+        if (!businessId) {
+          await updateSession(phone, 'MAIN_MENU', ctx)
+          return `Could not save — business not found. Please contact support.\n\nType *MENU* to go back.`
+        }
+
         await supabase.from('transactions').insert({
-          business_id: ctx.business_id as string,
-          type: ctx.tx_type as 'income'|'expense',
+          business_id: businessId,
+          type: ctx.tx_type as 'income' | 'expense',
           amount: ctx.tx_amount as number,
           description: ctx.tx_desc as string,
-          category: 'uncategorised', source: 'whatsapp',
+          category: 'uncategorised',
+          source: 'whatsapp',
         })
-        await updateSession(phone,'MAIN_MENU',{...ctx,tx_type:undefined,tx_amount:undefined,tx_desc:undefined})
-        return getMessage('LOG_SAVED',lang)
+        await updateSession(phone, 'MAIN_MENU', { ...ctx, business_id: businessId, tx_type: undefined, tx_amount: undefined, tx_desc: undefined })
+        return getMessage('LOG_SAVED', lang)
       }
-      await updateSession(phone,'MAIN_MENU',ctx)
-      return getMessage('LOG_CANCEL',lang)
+      await updateSession(phone, 'MAIN_MENU', ctx)
+      return getMessage('LOG_CANCEL', lang)
     }
     case 'COMPLY_MENU': {
       if (input==='1') { await updateSession(phone,'TT_Q1',ctx); return getMessage('TT_Q1',lang) }
