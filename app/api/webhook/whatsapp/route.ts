@@ -124,7 +124,11 @@ async function processMessage(phone: string, body: string): Promise<string> {
       }
     }
     case 'BOOKS_LOG_TYPE': {
-      const t = {'1':'income','2':'expense'}[input]
+      if (input === '3') {
+        await updateSession(phone, 'MAIN_MENU', ctx)
+        return getMessage('MAIN_MENU', lang)
+      }
+      const t = { '1': 'income', '2': 'expense' }[input]
       if (!t) return getMessage('UNKNOWN', lang)
       await updateSession(phone, 'BOOKS_LOG_AMOUNT', { ...ctx, tx_type: t })
       return getMessage('LOG_AMOUNT', lang)
@@ -145,7 +149,6 @@ async function processMessage(phone: string, body: string): Promise<string> {
     }
     case 'BOOKS_CONFIRM': {
       if (upper === 'YES' || input === '1') {
-        // Defensive lookup — resolve business_id from phone if missing
         let businessId = ctx.business_id as string
         if (!businessId) {
           const { data: biz } = await supabase
@@ -155,22 +158,35 @@ async function processMessage(phone: string, body: string): Promise<string> {
 
         if (!businessId) {
           await updateSession(phone, 'MAIN_MENU', ctx)
-          return `Could not save — business not found. Please contact support.\n\nType *MENU* to go back.`
+          return `Could not save — business not found.\n\nType *MENU* to go back.`
         }
 
         await supabase.from('transactions').insert({
           business_id: businessId,
-          type: ctx.tx_type as 'income' | 'expense',
-          amount: ctx.tx_amount as number,
+          type:        ctx.tx_type as 'income' | 'expense',
+          amount:      ctx.tx_amount as number,
           description: ctx.tx_desc as string,
-          category: 'uncategorised',
-          source: 'whatsapp',
+          category:    'uncategorised',
+          source:      'whatsapp',
         })
-        await updateSession(phone, 'MAIN_MENU', { ...ctx, business_id: businessId, tx_type: undefined, tx_amount: undefined, tx_desc: undefined })
-        return getMessage('LOG_SAVED', lang)
+
+        const typeLabel = ctx.tx_type === 'income' ? 'Income' : 'Expense'
+        const amount    = (ctx.tx_amount as number).toFixed(2)
+
+        await updateSession(phone, 'BOOKS_LOG_TYPE', {
+          ...ctx,
+          business_id: businessId,
+          tx_type:     undefined,
+          tx_amount:   undefined,
+          tx_desc:     undefined,
+        })
+
+        return `✅ ${typeLabel} of R${amount} saved!\n\n1️⃣ Capture Income\n2️⃣ Capture Expense\n3️⃣ Main Menu`
       }
-      await updateSession(phone, 'MAIN_MENU', ctx)
-      return getMessage('LOG_CANCEL', lang)
+
+      // NO or anything else — cancel and show quick options
+      await updateSession(phone, 'BOOKS_LOG_TYPE', ctx)
+      return `Cancelled.\n\n1️⃣ Capture Income\n2️⃣ Capture Expense\n3️⃣ Main Menu`
     }
     case 'COMPLY_MENU': {
       if (input==='1') { await updateSession(phone,'TT_Q1',ctx); return getMessage('TT_Q1',lang) }
