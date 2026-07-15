@@ -81,9 +81,9 @@ async function processMessage(phone: string, body: string): Promise<string> {
       if (input === '3') { await updateSession(phone, 'STORE_MENU', ctx);     return getMessage('STORE_MENU', lang) }
       if (input === '4') { await updateSession(phone, 'CREDIT_MENU', ctx);    return getMessage('CREDIT_MENU', lang) }
       if (input === '5') {
-        // Always look up business by phone — never trust ctx.business_id alone
         let businessId = ctx.business_id as string
 
+        // Auto-heal missing business_id
         if (!businessId) {
           const { data: biz } = await supabase
             .from('businesses').select('id').eq('phone', phone).single()
@@ -94,25 +94,34 @@ async function processMessage(phone: string, body: string): Promise<string> {
         }
 
         if (!businessId) {
-          return `No business found for this number. Please complete onboarding first.\n\nType *MENU* to go back.`
+          return `No business found for this number.\n\nType *MENU* to go back.`
         }
 
-        const { data: txns } = await supabase
+        const { data: txns, error } = await supabase
           .from('transactions')
           .select('type, amount')
           .eq('business_id', businessId)
 
-        const income  = txns?.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0) || 0
-        const expense = txns?.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0) || 0
-        const net     = income - expense
-
-        if (txns?.length === 0) {
-          return `📈 *Your Summary*\n\nNo transactions recorded yet.\n\nSend *1* to log your first income entry.\n\nType *MENU* for options.`
+        if (error) {
+          return `Could not load your summary. Please try again.\n\nType *MENU* to go back.`
         }
 
-        return `📈 *Your Summary*\n\n💚 Total Income:   R${income.toFixed(2)}\n🔴 Total Expenses: R${expense.toFixed(2)}\n\n💰 *Net Profit: R${net.toFixed(2)}*\n\n📊 ${txns?.length} transactions recorded.\n\nType *MENU* for options.`
+        if (!txns || txns.length === 0) {
+          return `📈 *Your Summary*\n\nNo transactions recorded yet.\n\nReply *1* to log your first entry.\n\nType *MENU* to go back.`
+        }
+
+        const income  = txns
+          .filter(t => t.type === 'income')
+          .reduce((sum, t) => sum + parseFloat(String(t.amount)), 0)
+
+        const expense = txns
+          .filter(t => t.type === 'expense')
+          .reduce((sum, t) => sum + parseFloat(String(t.amount)), 0)
+
+        const net = income - expense
+
+        return `📈 *Your Summary*\n\n💚 Total Income:   R${income.toFixed(2)}\n🔴 Total Expenses: R${expense.toFixed(2)}\n\n💰 *Net Profit: R${net.toFixed(2)}*\n\n📊 ${txns.length} transaction${txns.length !== 1 ? 's' : ''} recorded.\n\nType *MENU* to go back.`
       }
-      return getMessage('UNKNOWN', lang)
     }
     case 'BOOKS_LOG_TYPE': {
       const t = {'1':'income','2':'expense'}[input]
