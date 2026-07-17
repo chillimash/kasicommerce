@@ -100,6 +100,7 @@ async function processMessage(phone: string, body: string): Promise<string> {
       if (input === '2') { await updateSession(phone, 'COMPLY_MENU', ctx);    return getMessage('COMPLY_MENU', lang) }
       if (input === '3') { await updateSession(phone, 'STORE_MENU', ctx);     return getMessage('STORE_MENU', lang) }
       if (input === '4') { await updateSession(phone, 'CREDIT_MENU', ctx);    return getMessage('CREDIT_MENU', lang) }
+      if (input === '6') { await updateSession(phone, 'STOKVEL_MENU', ctx);   return STOKVEL_MESSAGES.STOKVEL_MENU }
       if (input === '5') {
         let businessId = ctx.business_id as string
 
