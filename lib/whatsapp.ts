@@ -55,6 +55,14 @@ export type BotState =
   | 'PAYE_Q2'
   | 'PAYE_RESULT'
   | 'CALENDAR_VIEW'
+  | 'STOKVEL_MENU'
+  | 'STOKVEL_CREATE_Q1'
+  | 'STOKVEL_CREATE_Q2'
+  | 'STOKVEL_CREATE_Q3'
+  | 'STOKVEL_CREATE_Q4'
+  | 'STOKVEL_CONTRIBUTE_SELECT'
+  | 'STOKVEL_CONTRIBUTE_WHO'
+  | 'STOKVEL_CONTRIBUTE_AMOUNT'
 
 export const MESSAGES: Record<string, Record<string, string>> = {
 
@@ -64,7 +72,8 @@ export const MESSAGES: Record<string, Record<string, string>> = {
     AWAIT_NAME:     `What is your name?`,
     AWAIT_BIZ_NAME: `What is the name of your business?`,
     AWAIT_BIZ_TYPE: `What type of business do you run?\n\n1️⃣ Spaza / General dealer\n2️⃣ Hair & Beauty\n3️⃣ Food & Catering\n4️⃣ Clothing & Textiles\n5️⃣ Services\n6️⃣ Other`,
-    MAIN_MENU:      `🏠 *Main Menu*\n\n1️⃣ 📒 KasiBooks — Log income or expense\n2️⃣ 📊 KasiComply — Tax & compliance\n3️⃣ 🛒 KasiStore — My online store\n4️⃣ 💰 KasiCredit — Apply for a loan\n5️⃣ 📈 Reports — View my summary\n\nReply with a number.`,
+    MAIN_MENU: `🏠 *Main Menu*\n\n1️⃣ 📒 KasiBooks — Log income or expense\n2️⃣ 📊 KasiComply — Tax & compliance\n3️⃣ 🛒 KasiStore — My online store\n4️⃣ 💰 KasiCredit — Apply for a loan\n5️⃣ 📈 Reports — View my summary\n6️⃣ 🤝 KasiStokvel — Group savings\n\nReply with a number.`,
+    // MAIN_MENU:      `🏠 *Main Menu*\n\n1️⃣ 📒 KasiBooks — Log income or expense\n2️⃣ 📊 KasiComply — Tax & compliance\n3️⃣ 🛒 KasiStore — My online store\n4️⃣ 💰 KasiCredit — Apply for a loan\n5️⃣ 📈 Reports — View my summary\n\nReply with a number.`,
     LOG_TYPE:       `What do you want to record?\n\n1️⃣ 💚 Income (money in)\n2️⃣ 🔴 Expense (money out)\n3️⃣ 🏠 Main Menu`,
     LOG_AMOUNT:     `How much? (e.g. 150)`,
     LOG_DESC:       `What was it for? (e.g. "sold 3 chickens")`,
@@ -83,7 +92,6 @@ export const MESSAGES: Record<string, Record<string, string>> = {
     PAYE_Q1:        `👥 *PAYE Calculator*\n\nHow many employees do you have?`,
     PAYE_Q2:        `What is the total *monthly payroll* (all salaries combined)?\n\n(e.g. 8500)`,
     PAYE_RESULT:    `💼 *Employee Cost Breakdown*\n\n*Gross Salary:* R{gross}\n• PAYE: R{paye}\n• UIF (employee): R{uif_ee}\n\n*Net Pay: R{net}*\n\n*Your costs to SARS:*\n• UIF (employer): R{uif_er}\n• SDL: R{sdl}\n\n*Total Cost to You: R{total}*\n\nDue by 7th of each month.\n\nType *MENU* to go back.`,
-    COMPLY_MENU:    `📊 *KasiComply*\n\n1️⃣ Turnover Tax check\n2️⃣ Tax calculator\n3️⃣ Compliance calendar\n4️⃣ PAYE calculator\n5️⃣ Key deadlines\n\nType *MENU* to go back.`,
     UNKNOWN:        `I didn't understand that. Type *MENU* to see your options.`,
   },
 

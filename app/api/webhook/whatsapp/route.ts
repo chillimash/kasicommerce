@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { sendWhatsApp, getMessage, BotState } from '@/lib/whatsapp'
+import { saveTransactionWithCompliance } from '@/lib/compliance-engine'
+import { STOKVEL_MESSAGES, generateStokvelCode, getCurrentPeriodLabel, getNextPayoutDate } from '@/lib/stokvel-engine'
 import {
   calculateTurnoverTax, qualifiesForTurnoverTax,
   calculateEmployeeCost, calculateVAT,
@@ -163,14 +165,13 @@ async function processMessage(phone: string, body: string): Promise<string> {
           return `Could not save — business not found.\n\nType *MENU* to go back.`
         }
 
-        await supabase.from('transactions').insert({
-          business_id: businessId,
-          type:        ctx.tx_type as 'income' | 'expense',
-          amount:      ctx.tx_amount as number,
-          description: ctx.tx_desc as string,
-          category:    'uncategorised',
-          source:      'whatsapp',
-        })
+        const { compliance } = await saveTransactionWithCompliance(
+          businessId,
+          ctx.tx_type as 'income' | 'expense',
+          ctx.tx_amount as number,
+          ctx.tx_desc as string,
+          'whatsapp'
+        )
 
         const typeLabel = ctx.tx_type === 'income' ? 'Income' : 'Expense'
         const amount    = (ctx.tx_amount as number).toFixed(2)
@@ -183,7 +184,7 @@ async function processMessage(phone: string, body: string): Promise<string> {
           tx_desc:     undefined,
         })
 
-        return `✅ ${typeLabel} of R${amount} saved!\n\n1️⃣ Capture Income\n2️⃣ Capture Expense\n3️⃣ Main Menu`
+        return `✅ ${typeLabel} of R${amount} saved!\n📋 Category: ${compliance.tax_category}\n\n1️⃣ Capture Income\n2️⃣ Capture Expense\n3️⃣ Main Menu`
       }
 
       // NO or anything else — cancel and show quick options
@@ -234,7 +235,8 @@ async function processMessage(phone: string, body: string): Promise<string> {
       if (input==='4') { await updateSession(phone,'PAYE_Q1',ctx); return getMessage('PAYE_Q1',lang) }
       if (input==='5') {
         return `📅 *Key Deadlines*\n\n• EMP201 (PAYE/UIF/SDL): 7th of each month\n• VAT201: 25th of every 2nd month\n• Turnover Tax: 28 February annually\n• Provisional Tax 1st: 31 August\n• Provisional Tax 2nd: 28 February\n• EMP501 Reconciliation: 31 May\n\nType *MENU* to go back.`
-      }
+      }      
+      if (input === '6') { await updateSession(phone, 'STOKVEL_MENU', ctx); return STOKVEL_MESSAGES.STOKVEL_MENU }
       return getMessage('COMPLY_MENU',lang)
     }
 
@@ -362,6 +364,200 @@ async function processMessage(phone: string, body: string): Promise<string> {
         return `Good news! Based on your records, you may qualify for up to *R${maxLoan.toFixed(0)}*.\n\nReply *2* to start your application.`
       }
       return `Our lending partners will contact you within 24 hours.\n\nType *MENU* to go back.`
+    }
+    case 'STOKVEL_MENU': {
+      if (input === '1') {
+        await updateSession(phone, 'STOKVEL_CREATE_Q1', ctx)
+        return STOKVEL_MESSAGES.CREATE_Q1
+      }
+      if (input === '2') {
+        // List user's stokvels
+        const { data: stokvels } = await supabase
+          .from('stokvels')
+          .select('id, name, total_pot, total_members, status')
+          .eq('admin_business_id', ctx.business_id as string)
+        if (!stokvels || stokvels.length === 0) {
+          return `You have no stokvels yet.\n\nReply *1* to create your first stokvel.\n\nType *MENU* to go back.`
+        }
+        const list = stokvels.map((s, i) => `${i + 1}️⃣ ${s.name} — R${s.total_pot} pot — ${s.total_members} members`).join('\n')
+        await updateSession(phone, 'MAIN_MENU', ctx)
+        return `🤝 *Your Stokvels*\n\n${list}\n\nType *MENU* to go back.`
+      }
+      if (input === '3') {
+        await updateSession(phone, 'STOKVEL_CONTRIBUTE_SELECT', ctx)
+        const { data: stokvels } = await supabase
+          .from('stokvels').select('id, name, contribution_amount')
+          .eq('admin_business_id', ctx.business_id as string)
+        if (!stokvels?.length) return `No stokvels found. Create one first.\n\nType *MENU* to go back.`
+        const list = stokvels.map((s, i) => `${i + 1}️⃣ ${s.name}`).join('\n')
+        await updateSession(phone, 'STOKVEL_CONTRIBUTE_SELECT', { ...ctx, stokvel_list: stokvels })
+        return STOKVEL_MESSAGES.CONTRIBUTE_SELECT.replace('{list}', list)
+      }
+      if (input === '4') {
+        const { data: stokvels } = await supabase
+          .from('stokvels').select('*, stokvel_members(*), stokvel_transactions(*)')
+          .eq('admin_business_id', ctx.business_id as string)
+        if (!stokvels?.length) return `No stokvels yet.\n\nType *MENU* to go back.`
+        const s = stokvels[0]
+        const period = getCurrentPeriodLabel(s.contribution_cycle)
+        const paid = s.stokvel_transactions?.filter((t: any) => t.period_label === period && t.transaction_type === 'contribution').length || 0
+        const outstanding = (s.total_members || 0) - paid
+        return STOKVEL_MESSAGES.POT_SUMMARY
+          .replace('{name}', s.name)
+          .replace('{pot}', (s.total_pot || 0).toFixed(2))
+          .replace('{members}', String(s.total_members || 0))
+          .replace('{next_payout}', s.next_payout_date || 'TBD')
+          .replace('{next_member}', 'Next in rotation')
+          .replace('{paid}', String(paid))
+          .replace('{outstanding}', String(outstanding))
+          .replace('{defaulted}', '0')
+      }
+      return STOKVEL_MESSAGES.STOKVEL_MENU
+    }
+
+    case 'STOKVEL_CREATE_Q1': {
+      await updateSession(phone, 'STOKVEL_CREATE_Q2', { ...ctx, stokvel_name: input })
+      return STOKVEL_MESSAGES.CREATE_Q2
+    }
+
+    case 'STOKVEL_CREATE_Q2': {
+      const typeMap: Record<string, string> = {
+        '1':'savings','2':'burial','3':'investment','4':'grocery','5':'business'
+      }
+      const stokvelType = typeMap[input] || 'savings'
+      await updateSession(phone, 'STOKVEL_CREATE_Q3', { ...ctx, stokvel_type: stokvelType })
+      return STOKVEL_MESSAGES.CREATE_Q3
+    }
+
+    case 'STOKVEL_CREATE_Q3': {
+      const amount = parseFloat(input.replace(/[^0-9.]/g, ''))
+      if (isNaN(amount) || amount <= 0) return `Please enter a valid amount (e.g. 500)`
+      await updateSession(phone, 'STOKVEL_CREATE_Q4', { ...ctx, stokvel_amount: amount })
+      return STOKVEL_MESSAGES.CREATE_Q4
+    }
+
+    case 'STOKVEL_CREATE_Q4': {
+      const cycleMap: Record<string, string> = { '1':'weekly','2':'fortnightly','3':'monthly' }
+      const cycle = cycleMap[input] || 'monthly'
+      const name  = ctx.stokvel_name as string
+      const code  = generateStokvelCode(name)
+      const nextPayout = getNextPayoutDate(cycle as 'weekly'|'fortnightly'|'monthly')
+
+      const { data: stokvel } = await supabase.from('stokvels').insert({
+        name,
+        admin_business_id:   ctx.business_id as string,
+        stokvel_type:        ctx.stokvel_type as string,
+        contribution_amount: ctx.stokvel_amount as number,
+        contribution_cycle:  cycle,
+        total_members:       0,
+        total_pot:           0,
+        status:              'active',
+        next_payout_date:    nextPayout.toISOString().split('T')[0],
+      }).select().single()
+
+      await updateSession(phone, 'STOKVEL_MENU', {
+        ...ctx,
+        stokvel_name: undefined,
+        stokvel_type: undefined,
+        stokvel_amount: undefined,
+      })
+
+      return STOKVEL_MESSAGES.CREATE_DONE
+        .replace('{name}', name)
+        .replace('{code}', code)
+    }
+
+    case 'STOKVEL_CONTRIBUTE_SELECT': {
+      const stokvelList = ctx.stokvel_list as any[]
+      const idx = parseInt(input) - 1
+      const selected = stokvelList?.[idx]
+      if (!selected) return `Invalid selection. Please try again.\n\nType *MENU* to go back.`
+
+      const { data: members } = await supabase
+        .from('stokvel_members').select('id, member_name, payout_position, total_contributed')
+        .eq('stokvel_id', selected.id).eq('status', 'active')
+
+      const memberList = members?.map((m, i) => `${i + 1}️⃣ ${m.member_name}`).join('\n') || 'No members yet'
+      await updateSession(phone, 'STOKVEL_CONTRIBUTE_WHO', {
+        ...ctx,
+        contribute_stokvel_id:     selected.id,
+        contribute_stokvel_name:   selected.name,
+        contribute_default_amount: selected.contribution_amount,
+        contribute_members:        members,
+      })
+      return STOKVEL_MESSAGES.CONTRIBUTE_WHO
+        .replace('{members}', memberList)
+    }
+
+    case 'STOKVEL_CONTRIBUTE_WHO': {
+      const members    = ctx.contribute_members as any[]
+      const idx        = parseInt(input) - 1
+      const member     = members?.[idx]
+      if (!member) return `Member not found. Please try again.\n\nType *MENU* to go back.`
+
+      await updateSession(phone, 'STOKVEL_CONTRIBUTE_AMOUNT', {
+        ...ctx,
+        contribute_member_id:   member.id,
+        contribute_member_name: member.member_name,
+      })
+      return STOKVEL_MESSAGES.CONTRIBUTE_AMOUNT
+        .replace('{default_amount}', String(ctx.contribute_default_amount))
+    }
+
+    case 'STOKVEL_CONTRIBUTE_AMOUNT': {
+      const raw    = input.toUpperCase()
+      const amount = raw === 'YES' || raw === ''
+        ? ctx.contribute_default_amount as number
+        : parseFloat(input.replace(/[^0-9.]/g, ''))
+
+      if (isNaN(amount) || amount <= 0) return `Please enter a valid amount.`
+
+      const stokvelId = ctx.contribute_stokvel_id as string
+      const memberId  = ctx.contribute_member_id  as string
+      const period    = getCurrentPeriodLabel('monthly')
+
+      // Record contribution
+      await supabase.from('stokvel_transactions').insert({
+        stokvel_id:       stokvelId,
+        member_id:        memberId,
+        transaction_type: 'contribution',
+        amount,
+        period_label:     period,
+        payment_method:   'cash',
+        recorded_by:      ctx.business_id as string,
+      })
+
+      // Update member total
+      await supabase.from('stokvel_members')
+        .update({ total_contributed: supabase.rpc('increment', { x: amount }) })
+        .eq('id', memberId)
+
+      // Update stokvel pot
+      const { data: stokvel } = await supabase
+        .from('stokvels').select('total_pot, total_members').eq('id', stokvelId).single()
+      const newPot = (parseFloat(String(stokvel?.total_pot || 0)) + amount)
+      await supabase.from('stokvels').update({ total_pot: newPot }).eq('id', stokvelId)
+
+      // Count paid this cycle
+      const { count } = await supabase.from('stokvel_transactions')
+        .select('id', { count: 'exact' })
+        .eq('stokvel_id', stokvelId)
+        .eq('period_label', period)
+        .eq('transaction_type', 'contribution')
+
+      await updateSession(phone, 'STOKVEL_MENU', {
+        ...ctx,
+        contribute_stokvel_id: undefined,
+        contribute_member_id:  undefined,
+        contribute_members:    undefined,
+      })
+
+      return STOKVEL_MESSAGES.CONTRIBUTE_DONE
+        .replace('{amount}',    amount.toFixed(2))
+        .replace('{member}',    ctx.contribute_member_name as string)
+        .replace('{pot_total}', newPot.toFixed(2))
+        .replace('{paid}',      String(count || 1))
+        .replace('{total}',     String(stokvel?.total_members || 0))
     }
     default:
       await updateSession(phone,'MAIN_MENU',ctx)
