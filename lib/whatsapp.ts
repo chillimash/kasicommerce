@@ -207,8 +207,7 @@ export const MESSAGES: Record<string, Record<string, string>> = {
     UNKNOWN:        `Ek het nie verstaan nie. Tik *MENU* om jou opsies te sien.`,
   },
 
-  // ─── TSHIVENDA ──────────────────────────────────────────────────────────────
-  TSHIVENDA: {
+  ve: {
     WELCOME:        `👋 Vho tanganedzwa kha *KasiCommerce* — Muthusi wa bindu lavho!\n\nLuambo lwa u shumisa hafha:\n1️⃣ English\n2️⃣ isiZulu\n3️⃣ isiXhosa\n4️⃣ Sesotho\n5️⃣ Afrikaans\n6️⃣ Tshivenḓa`,
     AWAIT_NAME:     `Dzina ḽavho ndi nnyi?`,
     AWAIT_BIZ_NAME: `Dzina la bindu ḽavho?`,
@@ -236,7 +235,6 @@ export const MESSAGES: Record<string, Record<string, string>> = {
   },
 
 }
-
 export function getMessage(state: string, lang: string): string {
   const msgs = MESSAGES[lang] || MESSAGES['en']
   return msgs[state] || MESSAGES['en'][state] || MESSAGES['en']['UNKNOWN']
