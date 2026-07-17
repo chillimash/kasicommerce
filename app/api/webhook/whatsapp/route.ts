@@ -39,9 +39,14 @@ async function processMessage(phone: string, body: string): Promise<string> {
   const input   = body.trim()
   const upper   = input.toUpperCase()
 
-  if (upper === 'MENU' || upper === '0') {
+  if (upper === 'MENU') {
     await updateSession(phone, 'MAIN_MENU', ctx)
     return getMessage('MAIN_MENU', lang)
+  }
+
+  if (state === 'MAIN_MENU' && input === '0') {
+    await updateSession(phone, 'SWITCH_LANGUAGE', ctx)
+    return getMessage('WELCOME', lang)
   }
 
   switch (state) {
@@ -53,6 +58,17 @@ async function processMessage(phone: string, body: string): Promise<string> {
       const chosen = langMap[input] || 'en'
       await updateSession(phone, 'AWAIT_NAME', { ...ctx, lang: chosen })
       return getMessage('AWAIT_NAME', chosen)
+    }
+    case 'SWITCH_LANGUAGE': {
+      const langMap: Record<string, string> = {
+        '1': 'en', '2': 'zu', '3': 'xh', '4': 'st', '5': 'af', '6': 've'
+      }
+      const chosen = langMap[input]
+
+      if (!chosen) return getMessage('WELCOME', lang)
+
+      await updateSession(phone, 'MAIN_MENU', { ...ctx, lang: chosen })
+      return getMessage('MAIN_MENU', chosen)
     }
     case 'AWAIT_NAME': {
       await updateSession(phone, 'AWAIT_BUSINESS_NAME', { ...ctx, owner_name: input })

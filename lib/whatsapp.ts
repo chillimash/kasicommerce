@@ -31,6 +31,7 @@ export async function sendWhatsAppTemplate(
 export type BotState =
   | 'WELCOME'
   | 'AWAIT_LANGUAGE'
+  | 'SWITCH_LANGUAGE'
   | 'AWAIT_NAME'
   | 'AWAIT_BUSINESS_NAME'
   | 'AWAIT_BUSINESS_TYPE'
@@ -72,7 +73,7 @@ export const MESSAGES: Record<string, Record<string, string>> = {
     AWAIT_NAME:     `What is your name?`,
     AWAIT_BIZ_NAME: `What is the name of your business?`,
     AWAIT_BIZ_TYPE: `What type of business do you run?\n\n1️⃣ Spaza / General dealer\n2️⃣ Hair & Beauty\n3️⃣ Food & Catering\n4️⃣ Clothing & Textiles\n5️⃣ Services\n6️⃣ Other`,
-    MAIN_MENU: `🏠 *Main Menu*\n\n1️⃣ 📒 KasiBooks — Log income or expense\n2️⃣ 📊 KasiComply — Tax & compliance\n3️⃣ 🛒 KasiStore — My online store\n4️⃣ 💰 KasiCredit — Apply for a loan\n5️⃣ 📈 Reports — View my summary\n6️⃣ 🤝 KasiStokvel — Group savings\n\nReply with a number.`,
+    MAIN_MENU: `🏠 *Main Menu*\n\n1️⃣ 📒 KasiBooks — Log income or expense\n2️⃣ 📊 KasiComply — Tax & compliance\n3️⃣ 🛒 KasiStore — My online store\n4️⃣ 💰 KasiCredit — Apply for a loan\n5️⃣ 📈 Reports — View my summary\n6️⃣ 🤝 KasiStokvel — Group savings\n0️⃣ 🌐 Change language\n\nReply with a number.`,
     // MAIN_MENU:      `🏠 *Main Menu*\n\n1️⃣ 📒 KasiBooks — Log income or expense\n2️⃣ 📊 KasiComply — Tax & compliance\n3️⃣ 🛒 KasiStore — My online store\n4️⃣ 💰 KasiCredit — Apply for a loan\n5️⃣ 📈 Reports — View my summary\n\nReply with a number.`,
     LOG_TYPE:       `What do you want to record?\n\n1️⃣ 💚 Income (money in)\n2️⃣ 🔴 Expense (money out)\n3️⃣ 🏠 Main Menu`,
     LOG_AMOUNT:     `How much? (e.g. 150)`,
@@ -101,7 +102,7 @@ export const MESSAGES: Record<string, Record<string, string>> = {
     AWAIT_NAME:     `Ubani igama lakho?`,
     AWAIT_BIZ_NAME: `Ubani igama leshishini lakho?`,
     AWAIT_BIZ_TYPE: `Uhlobo luni lweshishini owenza lona?\n\n1️⃣ Spaza / Isitolo\n2️⃣ Inwele & Ubuhle\n3️⃣ Ukudla & Ukupheka\n4️⃣ Izingubo\n5️⃣ Izinsizakalo\n6️⃣ Okunye`,
-    MAIN_MENU:      `🏠 *Imenyu Eyinhloko*\n\n1️⃣ 📒 KasiBooks — Rekhoda imali\n2️⃣ 📊 KasiComply — Intela\n3️⃣ 🛒 KasiStore — Isitolo sami\n4️⃣ 💰 KasiCredit — Cela imalimboleko\n5️⃣ 📈 Imibiko\n\nPhendula ngenombolo.`,
+    MAIN_MENU:      `🏠 *Imenyu Eyinhloko*\n\n1️⃣ 📒 KasiBooks — Rekhoda imali\n2️⃣ 📊 KasiComply — Intela\n3️⃣ 🛒 KasiStore — Isitolo sami\n4️⃣ 💰 KasiCredit — Cela imalimboleko\n5️⃣ 📈 Imibiko\n0️⃣ 🌐 Shintsha ulimi\n\nPhendula ngenombolo.`,
     LOG_TYPE:       `Yini ofuna ukuyirekhoda?\n\n1️⃣ 💚 Imali engenayo\n2️⃣ 🔴 Imali ephuma\n3️⃣ 🏠 Imenyu Eyinhloko`,
     LOG_AMOUNT:     `Malini? (isib. 150)`,
     LOG_DESC:       `Kwakungani? (isib. "ngithengise amajazi amathathu")`,
@@ -129,7 +130,7 @@ export const MESSAGES: Record<string, Record<string, string>> = {
     AWAIT_NAME:     `Ngubani igama lakho?`,
     AWAIT_BIZ_NAME: `Ngubani igama leshishini lakho?`,
     AWAIT_BIZ_TYPE: `Uhlobo lushishini lwakho luyintoni?\n\n1️⃣ Spaza / Ivenkile\n2️⃣ Iinwele & Ubuhle\n3️⃣ Ukutya & Ukupheka\n4️⃣ Impahla\n5️⃣ Iinkonzo\n6️⃣ Okunye`,
-    MAIN_MENU:      `🏠 *Imenyu Eyinhloko*\n\n1️⃣ 📒 KasiBooks — Gcina imali\n2️⃣ 📊 KasiComply — Irhafu\n3️⃣ 🛒 KasiStore — Ivenkile yam\n4️⃣ 💰 KasiCredit — Cela imboleko\n5️⃣ 📈 Ingxelo\n\nPhendula ngenombolo.`,
+    MAIN_MENU:      `🏠 *Imenyu Eyinhloko*\n\n1️⃣ 📒 KasiBooks — Gcina imali\n2️⃣ 📊 KasiComply — Irhafu\n3️⃣ 🛒 KasiStore — Ivenkile yam\n4️⃣ 💰 KasiCredit — Cela imboleko\n5️⃣ 📈 Ingxelo\n0️⃣ 🌐 Tshintsha ulwimi\n\nPhendula ngenombolo.`,
     LOG_TYPE:       `Yintoni ofuna ukuyigcina?\n\n1️⃣ 💚 Imali engena\n2️⃣ 🔴 Imali ephuma\n3️⃣ 🏠 Imenyu Eyinhloko`,
     LOG_AMOUNT:     `Malini? (umz. 150)`,
     LOG_DESC:       `Yayingantoni? (umz. "ndathengisa iinkukhu ezintathu")`,
@@ -157,7 +158,7 @@ export const MESSAGES: Record<string, Record<string, string>> = {
     AWAIT_NAME:     `Lebitso la hao ke mang?`,
     AWAIT_BIZ_NAME: `Lebitso la kgwebo ya hao ke mang?`,
     AWAIT_BIZ_TYPE: `Mofuta ofe wa kgwebo o o sebetsang?\n\n1️⃣ Spaza / Lebenkele\n2️⃣ Moriri & Botle\n3️⃣ Dijo & Ho pheha\n4️⃣ Diaparo\n5️⃣ Ditshebeletso\n6️⃣ Tse ding`,
-    MAIN_MENU:      `🏠 *Menyu Ea Mantlha*\n\n1️⃣ 📒 KasiBooks — Ngola chelete\n2️⃣ 📊 KasiComply — Lekhetho\n3️⃣ 🛒 KasiStore — Lebenkele la ka\n4️⃣ 💰 KasiCredit — Kopa mpho-kadimo\n5️⃣ 📈 Dipego\n\nAraba ka nomoro.`,
+    MAIN_MENU:      `🏠 *Menyu Ea Mantlha*\n\n1️⃣ 📒 KasiBooks — Ngola chelete\n2️⃣ 📊 KasiComply — Lekhetho\n3️⃣ 🛒 KasiStore — Lebenkele la ka\n4️⃣ 💰 KasiCredit — Kopa mpho-kadimo\n5️⃣ 📈 Dipego\n0️⃣ 🌐 Fetola puo\n\nAraba ka nomoro.`,
     LOG_TYPE:       `O batla ho ngola eng?\n\n1️⃣ 💚 Chelete e kena\n2️⃣ 🔴 Chelete e tswa\n3️⃣ 🏠 Menyu Ea Mantlha`,
     LOG_AMOUNT:     `Ke bokae? (mohlala 150)`,
     LOG_DESC:       `E ne e le ya eng? (mohlala "ke rekisitse dikokoetso tse tharo")`,
@@ -185,7 +186,7 @@ export const MESSAGES: Record<string, Record<string, string>> = {
     AWAIT_NAME:     `Wat is jou naam?`,
     AWAIT_BIZ_NAME: `Wat is die naam van jou besigheid?`,
     AWAIT_BIZ_TYPE: `Watter tipe besigheid bedryf jy?\n\n1️⃣ Spaza / Algemene handelaar\n2️⃣ Hare & Skoonheid\n3️⃣ Kos & Spyseniering\n4️⃣ Klere & Tekstiel\n5️⃣ Dienste\n6️⃣ Ander`,
-    MAIN_MENU:      `🏠 *Hoofkieslys*\n\n1️⃣ 📒 KasiBooks — Teken inkomste of uitgawes aan\n2️⃣ 📊 KasiComply — Belasting & nakoming\n3️⃣ 🛒 KasiStore — My aanlynwinkel\n4️⃣ 💰 KasiCredit — Doen aansoek vir 'n lening\n5️⃣ 📈 Verslae — Sien my opsomming\n\nAntwoord met 'n nommer.`,
+    MAIN_MENU:      `🏠 *Hoofkieslys*\n\n1️⃣ 📒 KasiBooks — Teken inkomste of uitgawes aan\n2️⃣ 📊 KasiComply — Belasting & nakoming\n3️⃣ 🛒 KasiStore — My aanlynwinkel\n4️⃣ 💰 KasiCredit — Doen aansoek vir 'n lening\n5️⃣ 📈 Verslae — Sien my opsomming\n0️⃣ 🌐 Verander taal\n\nAntwoord met 'n nommer.`,
     LOG_TYPE:       `Wat wil jy aanteken?\n\n1️⃣ 💚 Inkomste (geld in)\n2️⃣ 🔴 Uitgawe (geld uit)\n3️⃣ 🏠 Hoofkieslys`,
     LOG_AMOUNT:     `Hoeveel? (bv. 150)`,
     LOG_DESC:       `Waarvoor was dit? (bv. "verkoop 3 hoenders")`,
@@ -212,7 +213,7 @@ export const MESSAGES: Record<string, Record<string, string>> = {
     AWAIT_NAME:     `Dzina ḽavho ndi nnyi?`,
     AWAIT_BIZ_NAME: `Dzina la bindu ḽavho?`,
     AWAIT_BIZ_TYPE: `Khethekanyo ya bindu ḽavho?\n\n1️⃣ Tshiphaza / Vhengele\n2️⃣ Mavhudzi & Lunako\n3️⃣ Zwiliwa\n4️⃣ Zwiambaro & Malabi\n5️⃣ Tshumelo\n6️⃣ Zwinwevho`,
-    MAIN_MENU:      `🏠 *Main Menu*\n\n1️⃣ 📒 KasiBooks — Rekhodo ya Masheleni o dzhenaho kana o bvaho\n2️⃣ 📊 KasiComply — Muthelo & compliance\n3️⃣ 🛒 KasiStore — Vhengele ḽa online\n4️⃣ 💰 KasiCredit — Khumbelo ya tshelede\n5️⃣ 📈 Reports — Muvhigo wa tshelede\n\nKha vha nange nomboro.`,
+    MAIN_MENU:      `🏠 *Main Menu*\n\n1️⃣ 📒 KasiBooks — Rekhodo ya Masheleni o dzhenaho kana o bvaho\n2️⃣ 📊 KasiComply — Muthelo & compliance\n3️⃣ 🛒 KasiStore — Vhengele ḽa online\n4️⃣ 💰 KasiCredit — Khumbelo ya tshelede\n5️⃣ 📈 Reports — Muvhigo wa tshelede\n0️⃣ 🌐 Shandukisani luambo\n\nKha vha nange nomboro.`,
     LOG_TYPE:       `Vha khou toda u rekhoda mini?\n\n1️⃣ 💚 Income (Tshelede yo dzhenaho)\n2️⃣ 🔴 Expense (Tshelede yo bvaho)\n3️⃣ 🏠 Main Menu`,
     LOG_AMOUNT:     `Vhugai? (e.g. 150)`,
     LOG_DESC:       `Ndi ya mini? (e.g. "Khuhu tharu(3)")`,
