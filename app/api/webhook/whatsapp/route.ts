@@ -45,7 +45,9 @@ async function processMessage(phone: string, body: string): Promise<string> {
   switch (state) {
     case 'WELCOME':
     case 'AWAIT_LANGUAGE': {
-      const langMap: Record<string, string> = { '1': 'en', '2': 'zu', '3': 'xh', '4': 'st', '5': 'af' }
+      const langMap: Record<string, string> = {
+        '1': 'en', '2': 'zu', '3': 'xh', '4': 'st', '5': 'af', '6': 've'
+      }
       const chosen = langMap[input] || 'en'
       await updateSession(phone, 'AWAIT_NAME', { ...ctx, lang: chosen })
       return getMessage('AWAIT_NAME', chosen)

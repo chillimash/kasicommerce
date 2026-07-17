@@ -15,7 +15,7 @@ export type Database = {
           owner_name: string
           business_name: string
           phone: string
-          language: 'en' | 'zu' | 'xh' | 'st' | 'af'
+          language: 'en' | 'zu' | 'xh' | 'st' | 'af' | 've'
           business_type: string
           tier: 'free' | 'kasibooks' | 'kasicomply' | 'kasistore' | 'full'
           status: 'trial' | 'active' | 'suspended' | 'churned'
