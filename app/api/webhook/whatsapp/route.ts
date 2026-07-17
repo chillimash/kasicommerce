@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { sendWhatsApp, getMessage, BotState } from '@/lib/whatsapp'
+import { getMessage, BotState } from '@/lib/whatsapp'
 import { saveTransactionWithCompliance } from '@/lib/compliance-engine'
 import { STOKVEL_MESSAGES, generateStokvelCode, getCurrentPeriodLabel, getNextPayoutDate } from '@/lib/stokvel-engine'
 import {
@@ -590,8 +590,12 @@ export async function POST(req: NextRequest) {
   if (!from||!message) return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
   try {
     const reply = await processMessage(from, message)
-    await sendWhatsApp(from, reply)
-    return NextResponse.json({ success: true })
+    const response = new twilio.twiml.MessagingResponse()
+    response.message(reply)
+
+    return new NextResponse(response.toString(), {
+      headers: { 'Content-Type': 'text/xml; charset=utf-8' },
+    })
   } catch (err) {
     console.error('WhatsApp webhook error:', err)
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
