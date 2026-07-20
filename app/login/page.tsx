@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Zap, Phone, ArrowRight, Loader2, ShieldCheck } from 'lucide-react'
 
 type Step = 'phone' | 'otp' | 'setup'
+type OtpChannel = 'whatsapp' | 'sms'
 
 type InputProps = {
   label: string
@@ -42,6 +43,7 @@ export default function LoginPage() {
   const [otp, setOtp]         = useState('')
   const [name, setName]       = useState('')
   const [bizName, setBizName] = useState('')
+  const [otpChannel, setOtpChannel] = useState<OtpChannel>('whatsapp')
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
   const router = useRouter()
@@ -60,13 +62,33 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     const formatted = formatPhone(phone)
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error: whatsappError } = await supabase.auth.signInWithOtp({
       phone: formatted,
       options: { channel: 'whatsapp' } // OTP via WhatsApp
     })
+
+    if (!whatsappError) {
+      setOtpChannel('whatsapp')
+      setLoading(false)
+      setStep('otp')
+      return
+    }
+
+    // WhatsApp delivery is available only when the Supabase phone provider has
+    // a WhatsApp sender configured. Fall back to the provider's SMS channel so
+    // users can still access their account while that configuration is fixed.
+    const canFallbackToSms = /unsupported phone provider|whatsapp/i.test(whatsappError.message)
+    if (canFallbackToSms) {
+      const { error: smsError } = await supabase.auth.signInWithOtp({ phone: formatted })
+      setLoading(false)
+      if (smsError) { setError(smsError.message); return }
+      setOtpChannel('sms')
+      setStep('otp')
+      return
+    }
+
     setLoading(false)
-    if (error) { setError(error.message); return }
-    setStep('otp')
+    setError(whatsappError.message)
   }
 
   async function verifyOTP() {
@@ -180,7 +202,7 @@ export default function LoginPage() {
             <>
               <h2 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 700, color: '#2D2926' }}>Enter your code</h2>
               <p style={{ margin: '0 0 24px', fontSize: 13, color: '#718096' }}>
-                We sent a 6-digit code to <strong>{phone}</strong> via WhatsApp.
+                We sent a 6-digit code to <strong>{phone}</strong> via {otpChannel === 'whatsapp' ? 'WhatsApp' : 'SMS'}.
               </p>
               <Input
                 label="6-Digit Code"

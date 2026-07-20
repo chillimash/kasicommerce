@@ -12,7 +12,8 @@ end $$;
 
 -- Enable phone auth in Supabase Dashboard:
 -- Authentication → Providers → Phone → Enable
--- Set OTP channel to "WhatsApp" (uses Twilio Verify)
+-- For WhatsApp OTP, configure Twilio or Twilio Verify and a WhatsApp sender
+-- in the Supabase Auth Providers dashboard. Otherwise the app falls back to SMS.
 
 -- RLS policy: users can only see their own business (matched by phone)
 drop policy if exists "Allow all on businesses" on businesses;
