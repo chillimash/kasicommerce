@@ -156,14 +156,14 @@ async function processMessage(phone: string, body: string): Promise<string> {
     }
     case 'BOOKS_LOG_AMOUNT': {
       const amount = parseFloat(input.replace(/[^0-9.]/g,''))
-      if (isNaN(amount)||amount<=0) return 'Please enter a valid amount (e.g. 150)'
+      if (isNaN(amount)||amount<=0) return getMessage('BOOKS_INVALID_AMOUNT', lang)
       await updateSession(phone, 'BOOKS_LOG_DESC', { ...ctx, tx_amount: amount })
       return getMessage('LOG_DESC', lang)
     }
     case 'BOOKS_LOG_DESC': {
       const amount = ctx.tx_amount as number
       const txType = ctx.tx_type as string
-      const txLabel = txType === 'income' ? 'Income' : 'Expense'
+      const txLabel = getMessage(txType === 'income' ? 'BOOKS_TYPE_INCOME' : 'BOOKS_TYPE_EXPENSE', lang)
       const confirmTemplate = getMessage('BOOKS_CONFIRM_PROMPT', lang)
       const confirm = confirmTemplate
         .replace('{type}', txLabel)
@@ -184,7 +184,7 @@ async function processMessage(phone: string, body: string): Promise<string> {
 
         if (!businessId) {
           await updateSession(phone, 'MAIN_MENU', ctx)
-          return `Could not save — business not found.\n\nType *MENU* to go back.`
+          return getMessage('BOOKS_SAVE_FAILED', lang)
         }
 
         const { compliance } = await saveTransactionWithCompliance(
@@ -195,8 +195,13 @@ async function processMessage(phone: string, body: string): Promise<string> {
           'whatsapp'
         )
 
-        const typeLabel = ctx.tx_type === 'income' ? 'Income' : 'Expense'
+        const typeKey = ctx.tx_type === 'income' ? 'BOOKS_TYPE_INCOME' : 'BOOKS_TYPE_EXPENSE'
+        const typeLabel = getMessage(typeKey, lang)
         const amount    = (ctx.tx_amount as number).toFixed(2)
+        const savedTemplate = getMessage('BOOKS_SAVE_SUCCESS', lang)
+        const savedMessage = savedTemplate
+          .replace('{type}', typeLabel)
+          .replace('{amount}', amount)
 
         await updateSession(phone, 'BOOKS_LOG_TYPE', {
           ...ctx,
@@ -206,12 +211,12 @@ async function processMessage(phone: string, body: string): Promise<string> {
           tx_desc:     undefined,
         })
 
-        return `✅ ${typeLabel} of R${amount} saved!\n📋 Category: ${compliance.tax_category}\n\n1️⃣ Capture Income\n2️⃣ Capture Expense\n3️⃣ Main Menu`
+        return `${savedMessage}\n📋 Category: ${compliance.tax_category}`
       }
 
       // NO or anything else — cancel and show quick options
       await updateSession(phone, 'BOOKS_LOG_TYPE', ctx)
-      return `Cancelled.\n\n1️⃣ Capture Income\n2️⃣ Capture Expense\n3️⃣ Main Menu`
+      return getMessage('BOOKS_SAVE_CANCELLED', lang)
     }
     case 'COMPLY_MENU': {
       if (input==='1') { await updateSession(phone,'TT_Q1',ctx); return getMessage('TT_Q1',lang) }
