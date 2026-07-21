@@ -1,0 +1,26 @@
+Welcome to KasiCommerce — your business assistant
+Choose your preferred language: 1. English 2 isiZulu 3. isiXhosa 4. Sesotho 5 Afrikaans 6 Tshivenḓa
+What is your name?
+What is the name of your business?
+What type of business do you run? 1.  Spaza / General dealer 2. Hair & Beauty 3 Food & Catering 4. Clothing & Textiles 5. Services 6. Other`,
+ain Menu  0. Change language 1. *KasiBooks* — Log income or expense 2. *KasiComply* — Tax & compliance 3. *KasiStore* — My online store 4. *KasiCredit* — Apply for a loan 5. *Reports* — View my summary 6. *KasiStokvel* — Group savings Reply with a number.
+What do you want to record? 1. Income (money in) 2. Expense (money out) 3. Main Menu
+How much? (e.g. 150)
+What was it for? (e.g. "sold 3 chickens")
+Saved! 1. Capture Income 2. Capture Expense 3. Main Menu
+Cancelled. 1. Capture Income 2. Capture Expense 3 Main Menu`,
+*KasiComply* — Tax & Compliance 1. Check if I qualify for Turnover Tax 2. Calculate my tax liability 3. View my compliance calendar 4. PAYE & employee costs 5. My upcoming deadlines  Type *MENU* to go back.
+Turnover Tax Qualifier  
+Question 1 of 3: What is your estimated annual turnover (total sales per year)? Reply with the amount in Rands. (e.g. 450000)
+Question 2 of 3: Do you own or run more than one business? 1. No — just this one 2. Yes — I have other businesses
+Question 3 of 3: Is your business a public company? 1. No — it's a small private business 2. Yes — it's a public company
+Great news! You qualify for Turnover Tax.  Turnover Tax replaces 3 separate taxes with one simple annual payment. Your estimated tax: {amount} Due once a year on 28 February. 1. How do I register? 2 Calculate my exact amount 3. Back to menu
+You do not qualify for Turnover Tax. Reason: {reason} 1. Learn about standard tax  2. Back to menu
+How to Register for Turnover Tax 1. Go to sars.gov.za or SARS MobiApp 2. Log in to eFiling 3. Select *"Register for Turnover Tax"* 4. Complete the TT01 form.  Registration is free.
+Tax Calculator: What was your total income this month? (e.g. 12500)
+What were your total expenses this month? (e.g. 4200) Reply 0 if none.
+Your Tax Summary.  Income:   *R{income}* Expenses: *R{expenses}* Profit:   *R{profit}* Estimated Tax *{tax_detail}
+PAYE Calculator How many employees do you have?
+What is the total monthly payroll (all salaries combined)? (e.g. 8500)
+Employee Cost Breakdown*  Gross Salary: *R{gross}* PAYE: *R{paye}* UIF (employee): *R{uif_ee}* Net Pay: *R{net}* Your costs to SARS: UIF (employer): *R{uif_er}* SDL: *R{sdl}* Total Cost to You: *R{total}* Due by 7th of each month. 
+I didn't understand that. Type *MENU* to see your options.

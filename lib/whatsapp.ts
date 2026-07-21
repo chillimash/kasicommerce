@@ -223,7 +223,7 @@ export const MESSAGES: Record<string, Record<string, string>> = {
     TT_Q2:          `Mbudziso 2 ya 3:\n\nVha na mabindu ano fhira lithihi?\n\n1️⃣ Hai — Ndi lithihi fhedzi\n2️⃣ Ee — Ndi na manwe mabindu`,
     TT_Q3:          `Mbudziso 3 ya 3:\n\nBindu lavho *khamphani ya tshitshavha / public company*?\n\n1️⃣ Hai — Ndi bindu li tuku la phuraivethe\n2️⃣ Ee — Ndi khampani ya tshitshavha`,
     TT_QUALIFIES:   `✅ *Mafhungo a vhudi! Vha tendelwa u badela muthelo wa meledziso /Turnover Tax.*\n\nMuthelo wa meledziso (Turnover Tax) u dzhiela vhudzulo mithelo miraru  yo fhambanaho nga mbadelo nthihi yo leluwaho ya ṅwaha.\n\nMuthelo wo anganyelwaho: *{amount}*\nDucha la u fhedzisa u badela ndi dzi 28 dza Luhuhi/February.\n\n1️⃣ Vha nwalisa hani?\n2️⃣ Khari vhalele tshelede ya vhukuma\n3️⃣ Humela murahu kha menu`,
-    TT_NOT_QUALIFY: `ℹ️ Avho ngo fanelwa nga muthelo wa mveledziso (Turnover Tax).\n\nMbuno: {reason}\n\n1️⃣ Kha vha gude ha ha muthelo wo ḓoweleaho \n2️⃣ Humela murahu kha menu`,
+    TT_NOT_QUALIFY: `ℹ️ Avho ngo fanelwa nga muthelo wa mveledziso (Turnover Tax).\n\nMbuno: {reason}\n\n1️⃣ Kha vha gude nga ha muthelo wo ḓoweleaho \n2️⃣ Humela murahu kha *MENU*`,
     TT_HOW_REGISTER:`📝 *Nḓila ya u ṅwalisa kha Muthelo wa mveledziso (Turnover Tax)*\n\n1. Kha vha dzhene kha sars.gov.za kana SARS MobiApp\n2. Kha vha dzhene kha eFiling\n3. Vha nange "Register for Turnover Tax"\n4. Vha dadzhe TT01 form\n\n✅ U nwalisa a zwi badelwi.\n\nType *MENU* to go back.`,
     CALC_Q1:        `💰 *Tax Calculator*\n\nWhat was your *total income* this month?\n\n(e.g. 12500)`,
     CALC_Q2:        `Tshelede yo bvaho uno nwedzi ndi vhugai you tangana?\n\n(e.g. 4200)\nReply 0 if none.`,
