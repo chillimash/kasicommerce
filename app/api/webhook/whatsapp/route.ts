@@ -164,7 +164,12 @@ async function processMessage(phone: string, body: string): Promise<string> {
       const amount = ctx.tx_amount as number
       const txType = ctx.tx_type as string
       const txLabel = txType === 'income' ? 'Income' : 'Expense'
-      const confirm = `Got it!\n\n${txLabel}: R${amount}\nFor: ${input}\n\nReply YES to save or NO to cancel.`
+      const confirmTemplate = getMessage('BOOKS_CONFIRM_PROMPT', lang)
+      const confirm = confirmTemplate
+        .replace('{type}', txLabel)
+        .replace('{amount}', amount.toFixed(2))
+        .replace('{desc}', input)
+
       await updateSession(phone, 'BOOKS_CONFIRM', { ...ctx, tx_desc: input })
       return confirm
     }
