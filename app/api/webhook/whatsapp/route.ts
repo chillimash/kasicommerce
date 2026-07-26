@@ -31,6 +31,15 @@ async function updateSession(phone: string, state: BotState, context: Record<str
     .eq('phone', phone)
 }
 
+async function resolveBusinessId(phone: string, ctx: Record<string, unknown>): Promise<string | undefined> {
+  let businessId = ctx.business_id as string | undefined
+  if (!businessId) {
+    const { data: biz } = await supabase.from('businesses').select('id').eq('phone', phone).single()
+    businessId = biz?.id
+  }
+  return businessId
+}
+
 async function processMessage(phone: string, body: string): Promise<string> {
   const session = await getOrCreateSession(phone)
   const state   = (session?.state || 'WELCOME') as BotState
@@ -376,11 +385,88 @@ async function processMessage(phone: string, body: string): Promise<string> {
         .replace('{total}',   costs.totalCost.toFixed(2))
     }
     case 'STORE_MENU': {
-      if (input==='3') {
-        const storeUrl = `${process.env.NEXT_PUBLIC_APP_URL}/store/${ctx.business_id}`
-        return `Your store link:\n\n${storeUrl}\n\nShare this with your customers!\n\nType *MENU* to go back.`
+      if (input === '1') {
+        await updateSession(phone, 'STORE_ADD_NAME', ctx)
+        return getMessage('STORE_ADD_NAME', lang)
       }
-      return `KasiStore features coming soon!\n\nType *MENU* to go back.`
+
+      if (input === '2') {
+        const businessId = await resolveBusinessId(phone, ctx)
+        if (!businessId) return `No business found for this number.\n\nType *MENU* to go back.`
+
+        const { data: products, error } = await supabase
+          .from('store_products')
+          .select('name, price, in_stock')
+          .eq('business_id', businessId)
+          .order('created_at', { ascending: false })
+
+        if (error) return `Could not load your products. Please try again.\n\nType *MENU* to go back.`
+
+        if (!products || products.length === 0) {
+          return `📦 *Your Products*\n\nNo products yet.\n\nReply *1* to add your first product.\n\nType *MENU* to go back.`
+        }
+
+        const list = products
+          .map((p, i) => `${i + 1}. ${p.name} — R${Number(p.price).toFixed(2)}${p.in_stock ? '' : ' (out of stock)'}`)
+          .join('\n')
+
+        return `📦 *Your Products* (${products.length})\n\n${list}\n\nReply *1* to add another product.\n\nType *MENU* to go back.`
+      }
+
+      if (input === '3') {
+        const businessId = await resolveBusinessId(phone, ctx)
+        if (!businessId) return `No business found for this number.\n\nType *MENU* to go back.`
+        if (businessId !== ctx.business_id) {
+          await updateSession(phone, 'STORE_MENU', { ...ctx, business_id: businessId })
+        }
+
+        const storeUrl = `${process.env.NEXT_PUBLIC_APP_URL}/store/${businessId}`
+        return `🔗 Your store link:\n\n${storeUrl}\n\nShare this with your customers — they can browse your products and order via WhatsApp!\n\nType *MENU* to go back.`
+      }
+
+      return getMessage('STORE_MENU', lang)
+    }
+    case 'STORE_ADD_NAME': {
+      await updateSession(phone, 'STORE_ADD_PRICE', { ...ctx, new_product_name: input })
+      return getMessage('STORE_ADD_PRICE', lang)
+    }
+    case 'STORE_ADD_PRICE': {
+      const price = parseFloat(input.replace(/[^0-9.]/g, ''))
+      if (isNaN(price) || price <= 0) return getMessage('STORE_INVALID_PRICE', lang)
+      await updateSession(phone, 'STORE_ADD_DESC', { ...ctx, new_product_price: price })
+      return getMessage('STORE_ADD_DESC', lang)
+    }
+    case 'STORE_ADD_DESC': {
+      const description = input.toUpperCase() === 'SKIP' ? null : input
+      const businessId  = await resolveBusinessId(phone, ctx)
+
+      if (!businessId) {
+        await updateSession(phone, 'MAIN_MENU', ctx)
+        return `Could not save — business not found.\n\nType *MENU* to go back.`
+      }
+
+      const name  = ctx.new_product_name as string
+      const price = ctx.new_product_price as number
+
+      const { error } = await supabase.from('store_products').insert({
+        business_id: businessId,
+        name,
+        price,
+        description,
+        in_stock: true,
+      })
+
+      await updateSession(phone, 'STORE_MENU', {
+        ...ctx,
+        business_id:       businessId,
+        new_product_name:  undefined,
+        new_product_price: undefined,
+      })
+
+      if (error) return `Could not save your product. Please try again.\n\nType *MENU* to go back.`
+
+      const storeUrl = `${process.env.NEXT_PUBLIC_APP_URL}/store/${businessId}`
+      return `✅ *${name}* added to your store — R${price.toFixed(2)}\n\n🔗 ${storeUrl}\n\n1️⃣ Add another product\n2️⃣ View my products\n\nType *MENU* to go back.`
     }
     case 'CREDIT_MENU': {
       if (input==='1') {
